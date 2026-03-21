@@ -90,7 +90,23 @@ public class MockPLCClient : IPLCClient
     {
         for (int i = 0; i < values.Length; i++)
         {
-            _bits[IncrementDevice(device, i)] = values[i];
+            string key = IncrementDevice(device, i);
+            bool prevValue = _bits.ContainsKey(key) && _bits[key];
+            _bits[key] = values[i];
+
+            // 상승 에지 감지: OFF → ON 전환 시 PLC 동작 시뮬레이션
+            if (values[i] && !prevValue)
+            {
+                switch (key)
+                {
+                    case "M0":  // 비누 버튼 ON → 비누 사용
+                        SimulateSoapUse(50);
+                        _bits["M0"] = false;  // 펄스 처리 후 자동 리셋 (다음 클릭 대비)
+                        Debug.Log("[MockPLC] M0 상승 에지 → 비누 사용 시뮬레이션");
+                        break;
+                    // M1, M2는 잔량 개념 없으므로 별도 처리 불필요
+                }
+            }
         }
         return Task.CompletedTask;
     }
