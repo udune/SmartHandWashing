@@ -4985,7 +4985,7 @@ ParticleSystem:
     startLifetime:
       serializedVersion: 2
       minMaxState: 0
-      scalar: 1
+      scalar: 0.1
       minScalar: 5
       maxCurve:
         serializedVersion: 2
@@ -9731,13 +9731,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5184459364999914254}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.5669185, y: 0.42261502, z: -0.42261493, w: 0.5669185}
-  m_LocalPosition: {x: -0, y: 0.285, z: 0}
+  m_LocalRotation: {x: 0.7068782, y: 0.66326976, z: -0.017976327, w: 0.24509874}
+  m_LocalPosition: {x: 0.0063388213, y: 0.144, z: -0.016727805}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2032561340935644043}
-  m_LocalEulerAnglesHint: {x: 90, y: 0, z: -73.406}
+  m_LocalEulerAnglesHint: {x: 123.25101, y: -24.63501, z: -90}
 --- !u!198 &8634534372727867044
 ParticleSystem:
   m_ObjectHideFlags: 0
@@ -9992,7 +9992,7 @@ ParticleSystem:
     startSize:
       serializedVersion: 2
       minMaxState: 0
-      scalar: 0.01
+      scalar: 0.02
       minScalar: 1
       maxCurve:
         serializedVersion: 2
@@ -14585,15 +14585,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: ec7af8a970fe79c43912441b49fdc12f, type: 3}
       propertyPath: m_LocalScale.x
-      value: 30
+      value: 40
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: ec7af8a970fe79c43912441b49fdc12f, type: 3}
       propertyPath: m_LocalScale.y
-      value: 30
+      value: 40
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: ec7af8a970fe79c43912441b49fdc12f, type: 3}
       propertyPath: m_LocalScale.z
-      value: 30
+      value: 40
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: ec7af8a970fe79c43912441b49fdc12f, type: 3}
       propertyPath: m_LocalPosition.x
