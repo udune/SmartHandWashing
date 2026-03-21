@@ -1,0 +1,17 @@
+:root {
+    /* 폰트 */
+    -unity-font-definition: url("project://database/Assets/Fonts/Pretendard-Regular SDF.asset");
+
+    --color-bg:         #0D1B2A;
+    --color-header:     #111E2D;
+    --color-panel:      #162032;
+    --color-accent:     #2196F3;
+    --color-green:      #00E676;
+    --color-warning:    #FF9100;
+    --color-error:      #FF1744;
+    --color-text:       #E0E0E0;
+    --color-subtext:    #78909C;
+    --color-btn-idle:   #1A2A3A;
+    --color-btn-active: #0D47A1;
+    --radius-btn:       12px;
+}

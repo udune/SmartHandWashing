@@ -1,0 +1,167 @@
+.root-container {
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    background-color: var(--color-bg);
+}
+
+/* ── 헤더 ── */
+.header-bar {
+    height: 50px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    background-color: var(--color-header);
+    border-bottom-width: 1px;
+    border-bottom-color: #1E3A5F;
+}
+.header-title {
+    color: var(--color-text);
+    font-size: 16px;
+    -unity-font-style: bold;
+}
+.header-datetime {
+    color: var(--color-subtext);
+    font-size: 14px;
+}
+.status-container {
+    flex-direction: row;
+    align-items: center;
+}
+.status-text {
+    color: var(--color-text);
+    font-size: 14px;
+    margin-right: 8px;
+}
+.status-led {
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    background-color: var(--color-green);
+}
+.status-led.warning { background-color: var(--color-warning); }
+.status-led.error   { background-color: var(--color-error);   }
+
+/* ── 콘텐츠 영역 ── */
+.content-area {
+    flex-grow: 1;
+    flex-direction: row;
+}
+
+/* ── 좌측 게이지 패널 ── */
+.left-panel {
+    width: 100px;
+    background-color: var(--color-panel);
+    align-items: center;
+    padding: 20px 0;
+    border-right-width: 1px;
+    border-right-color: #1E3A5F;
+}
+.gauge-label-title {
+    color: var(--color-subtext);
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+.gauge-100-label {
+    color: var(--color-subtext);
+    font-size: 11px;
+    margin-bottom: 4px;
+}
+.gauge-track {
+    width: 28px;
+    flex-grow: 1;
+    background-color: #1A2A3A;
+    border-radius: 4px;
+    overflow: hidden;
+    justify-content: flex-end;
+}
+.gauge-fill {
+    width: 100%;
+    background-color: var(--color-green);
+    border-radius: 4px;
+}
+.gauge-fill.warning { background-color: var(--color-warning); }
+.gauge-fill.error   { background-color: var(--color-error);   }
+.gauge-0-label {
+    color: var(--color-subtext);
+    font-size: 11px;
+    margin-top: 4px;
+}
+.gauge-pct-label {
+    color: var(--color-text);
+    font-size: 13px;
+    -unity-font-style: bold;
+    margin-top: 8px;
+}
+
+/* ── 중앙 3D 뷰어 ── */
+.viewer-container {
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-bg);
+}
+#3d-viewer {
+    -unity-background-scale-mode: scale-to-fit;
+}
+.viewer-title {
+    position: absolute;
+    top: 12px;
+    color: var(--color-subtext);
+    font-size: 13px;
+}
+
+/* ── 하단 버튼 바 ── */
+.bottom-bar {
+    height: 100px;
+    flex-direction: row;
+    background-color: var(--color-header);
+    border-top-width: 1px;
+    border-top-color: #1E3A5F;
+    padding: 8px;
+}
+.action-btn {
+    flex-grow: 1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-btn-idle);
+    border-radius: var(--radius-btn);
+    margin: 0 6px;
+    cursor: hand;
+    border-width: 1px;
+    border-color: #1E3A5F;
+}
+.action-btn:hover {
+    background-color: #1E3A5F;
+}
+.action-btn.active {
+    background-color: var(--color-btn-active);
+    border-color: var(--color-accent);
+}
+.btn-icon {
+    font-size: 28px;
+    margin-right: 12px;
+}
+.btn-content {
+    flex-direction: column;
+}
+.btn-name {
+    color: var(--color-text);
+    font-size: 16px;
+    -unity-font-style: bold;
+}
+.btn-timer {
+    color: var(--color-subtext);
+    font-size: 12px;
+    margin-top: 2px;
+}
+.btn-led {
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    background-color: #1A2A3A;
+    margin-left: 12px;
+}
+.btn-led.active { background-color: var(--color-green); }
