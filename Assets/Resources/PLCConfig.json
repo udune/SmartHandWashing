@@ -1,0 +1,16 @@
+{
+  "useMock": true,
+  "ip": "192.168.1.10",
+  "port": 5007,
+  "pollIntervalMs": 100,
+  "timeoutMs": 2000,
+  "devices": {
+    "soapLevel":  "D0",
+    "soapBtn":    "M0",
+    "waterBtn":   "M1",
+    "airBtn":     "M2",
+    "soapAlarm":  "M10",
+    "waterAlarm": "M11",
+    "usageCount": "D10"
+  }
+}
