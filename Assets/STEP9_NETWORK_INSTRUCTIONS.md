@@ -117,6 +117,10 @@ public interface IPLCClient
 
 `Assets/Scripts/Network/MockPLCClient.cs` 를 생성해줘:
 
+> **핵심 개념: PLC Master 패턴**
+> HMI(Unity)는 버튼 신호만 PLC에 전송하고, PLC가 데이터를 처리합니다.
+> `WriteBitsAsync`에서 M0 ON 시 자동으로 `SimulateSoapUse()` 호출 → D0 감소
+
 ```csharp
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -128,7 +132,10 @@ using UnityEngine;
 /// </summary>
 public class MockPLCClient : IPLCClient
 {
-    public bool IsConnected => true;
+    public bool IsConnected
+    {
+        get { return true; }
+    }
 
     // D 디바이스 (워드, 초기값 설정)
     private readonly Dictionary<string, int> _words = new Dictionary<string, int>
@@ -164,7 +171,14 @@ public class MockPLCClient : IPLCClient
         for (int i = 0; i < count; i++)
         {
             string key = IncrementDevice(device, i);
-            result[i] = _words.ContainsKey(key) ? _words[key] : 0;
+            if (_words.ContainsKey(key))
+            {
+                result[i] = _words[key];
+            }
+            else
+            {
+                result[i] = 0;
+            }
         }
         return Task.FromResult(result);
     }
@@ -175,7 +189,14 @@ public class MockPLCClient : IPLCClient
         for (int i = 0; i < count; i++)
         {
             string key = IncrementDevice(device, i);
-            result[i] = _bits.ContainsKey(key) && _bits[key];
+            if (_bits.ContainsKey(key) && _bits[key])
+            {
+                result[i] = true;
+            }
+            else
+            {
+                result[i] = false;
+            }
         }
         return Task.FromResult(result);
     }
@@ -183,14 +204,34 @@ public class MockPLCClient : IPLCClient
     public Task WriteWordsAsync(string device, int[] values)
     {
         for (int i = 0; i < values.Length; i++)
+        {
             _words[IncrementDevice(device, i)] = values[i];
+        }
         return Task.CompletedTask;
     }
 
     public Task WriteBitsAsync(string device, bool[] values)
     {
         for (int i = 0; i < values.Length; i++)
-            _bits[IncrementDevice(device, i)] = values[i];
+        {
+            string key = IncrementDevice(device, i);
+            bool prevValue = _bits.ContainsKey(key) && _bits[key];
+            _bits[key] = values[i];
+
+            // 상승 에지 감지: OFF → ON 전환 시 PLC 동작 시뮬레이션
+            if (values[i] && !prevValue)
+            {
+                switch (key)
+                {
+                    case "M0":  // 비누 버튼 ON → 비누 사용
+                        SimulateSoapUse(50);
+                        _bits["M0"] = false;  // 펄스 처리 후 자동 리셋 (다음 클릭 대비)
+                        Debug.Log("[MockPLC] M0 상승 에지 → 비누 사용 시뮬레이션");
+                        break;
+                    // M1, M2는 잔량 개념 없으므로 별도 처리 불필요
+                }
+            }
+        }
         return Task.CompletedTask;
     }
 
@@ -201,20 +242,51 @@ public class MockPLCClient : IPLCClient
         {
             _words["D0"] = Mathf.Max(0, _words["D0"] - decreaseAmount);
             _words["D10"]++;
-            if (_words["D0"] <= 200) _bits["M10"] = true;  // 비누 알람
+
+            if (_words["D0"] <= 200)
+            {
+                _bits["M10"] = true;  // 비누 알람
+            }
+        }
+    }
+
+    /// <summary>비누 잔량 리셋 (테스트용)</summary>
+    public void ResetSoapLevel(int value = 1000)
+    {
+        _words["D0"] = Mathf.Clamp(value, 0, 1000);
+        _bits["M10"] = _words["D0"] <= 200;
+    }
+
+    /// <summary>버튼 비트 설정 (테스트용) - M0=비누, M1=물, M2=에어</summary>
+    public void SetButtonBit(int index, bool value)
+    {
+        string key = $"M{index}";
+        if (_bits.ContainsKey(key))
+        {
+            _bits[key] = value;
         }
     }
 
     // "D0" + offset → "D1", "D2" ...
     private string IncrementDevice(string device, int offset)
     {
-        if (offset == 0) return device;
+        if (offset == 0)
+        {
+            return device;
+        }
+
         string prefix = "";
         int number = 0;
         foreach (char c in device)
         {
-            if (char.IsLetter(c)) prefix += c;
-            else number = number * 10 + (c - '0');
+            if (char.IsLetter(c))
+            {
+                prefix += c;
+            }
+            else
+            {
+                number = number * 10 + (c - '0');
+            }
         }
         return $"{prefix}{number + offset}";
     }
@@ -490,6 +562,10 @@ public class SLMPClient : IPLCClient
 
 `Assets/Scripts/Network/NetworkManager.cs` 를 생성해줘:
 
+> **핵심 개념: 상승 에지 검출**
+> PLC에서 비트가 OFF→ON으로 전환될 때만 동작을 트리거합니다.
+> `_prevBits` 배열로 이전 상태를 저장하여 에지 검출합니다.
+
 ```csharp
 using System;
 using System.Collections;
@@ -503,27 +579,49 @@ public class NetworkManager : MonoBehaviour
 {
     [Header("References")]
     public StationData stationData;
+    public StationController stationController;  // PLC → HMI 동작 연동
 
     // ── 설정 (PLCConfig.json에서 로드) ───────────────────────────────
-    private PLCConfig   _config;
-    private IPLCClient  _client;
+    private PLCConfig _config;
+    private IPLCClient _client;
 
     // ── 상태 ─────────────────────────────────────────────────────────
-    public bool  IsConnected   => _client != null && _client.IsConnected;
+    private bool _hasConnectedOnce = false;  // 최초 연결 여부 추적
+    private bool[] _prevBits = new bool[3];  // 이전 비트 상태 (에지 검출용)
+    public bool IsConnected
+    {
+        get
+        {
+            if (_client != null && _client.IsConnected)
+            {
+                return true;
+            }
+            return false;
+        }
+    }
     public string StatusMessage { get; private set; } = "초기화 중...";
 
-    public event Action<bool>   OnConnectionChanged;
+    public event Action<bool> OnConnectionChanged;
     public event Action<string> OnStatusChanged;
 
     // ── 생명주기 ─────────────────────────────────────────────────────
 
     void Start()
     {
+        // StationController 자동 연결 (같은 GameObject에 있는 경우)
+        if (stationController == null)
+        {
+            stationController = GetComponent<StationController>();
+        }
+
         LoadConfig();
         StartCoroutine(ConnectionLoop());
     }
 
-    void OnDestroy() => _client?.Disconnect();
+    void OnDestroy()
+    {
+        _client?.Disconnect();
+    }
 
     // ── 설정 로드 ────────────────────────────────────────────────────
 
@@ -541,15 +639,28 @@ public class NetworkManager : MonoBehaviour
             Debug.LogWarning("[Network] PLCConfig.json 없음 — 기본값(Mock) 사용");
         }
 
-        _client = _config.useMock
-            ? (IPLCClient)new MockPLCClient()
-            : (IPLCClient)new SLMPClient();
+        if (_config.useMock)
+        {
+            _client = new MockPLCClient();
+        }
+        else
+        {
+            _client = new SLMPClient();
+        }
     }
 
     // ── 연결 루프 ────────────────────────────────────────────────────
 
     private IEnumerator ConnectionLoop()
     {
+        // 최초 연결 시도 (Mock 모드에서도 ConnectAsync 호출 보장)
+        if (!_hasConnectedOnce)
+        {
+            SetStatus("연결 시도 중...", false);
+            yield return ConnectCoroutine();
+            _hasConnectedOnce = true;
+        }
+
         while (true)
         {
             if (!IsConnected)
@@ -612,8 +723,32 @@ public class NetworkManager : MonoBehaviour
         {
             bool[] bits = bitTask.Result;
             // PLC 신호로 버튼 상태 동기화 (PLC → HMI 방향)
-            // StationController와 이벤트로 연동 (필요 시 확장)
-            _ = bits; // 현재는 읽기만, 추후 확장 지점
+            // 상승 에지 검출: OFF→ON 전환 시에만 동작 트리거
+            if (stationController != null)
+            {
+                // M0: 비누 버튼 (상승 에지)
+                if (bits[0] && !_prevBits[0])
+                {
+                    stationController.ActivateSoap();
+                    Debug.Log("[Network] PLC 신호: 비누 활성화");
+                }
+                // M1: 물 버튼 (상승 에지)
+                if (bits[1] && !_prevBits[1])
+                {
+                    stationController.ActivateWater();
+                    Debug.Log("[Network] PLC 신호: 물 활성화");
+                }
+                // M2: 에어 버튼 (상승 에지)
+                if (bits[2] && !_prevBits[2])
+                {
+                    stationController.ActivateAir();
+                    Debug.Log("[Network] PLC 신호: 에어 활성화");
+                }
+            }
+            // 현재 상태를 이전 상태로 저장
+            _prevBits[0] = bits[0];
+            _prevBits[1] = bits[1];
+            _prevBits[2] = bits[2];
         }
 
         yield return new WaitForSeconds(_config.pollIntervalMs / 1000f);
@@ -621,26 +756,53 @@ public class NetworkManager : MonoBehaviour
 
     // ── HMI → PLC 쓰기 (버튼 클릭 시 외부에서 호출) ─────────────────
 
-    public void WriteSoapButton(bool value)  => StartCoroutine(WritebitCoroutine(_config.devices.soapBtn,  value));
-    public void WriteWaterButton(bool value) => StartCoroutine(WritebitCoroutine(_config.devices.waterBtn, value));
-    public void WriteAirButton(bool value)   => StartCoroutine(WritebitCoroutine(_config.devices.airBtn,   value));
-
-    private IEnumerator WritebitCoroutine(string device, bool value)
+    public void WriteSoapButton(bool value)
     {
-        if (!IsConnected) yield break;
+        StartCoroutine(WriteBitCoroutine(_config.devices.soapBtn, value));
+    }
+
+    public void WriteWaterButton(bool value)
+    {
+        StartCoroutine(WriteBitCoroutine(_config.devices.waterBtn, value));
+    }
+
+    public void WriteAirButton(bool value)
+    {
+        StartCoroutine(WriteBitCoroutine(_config.devices.airBtn, value));
+    }
+
+    private IEnumerator WriteBitCoroutine(string device, bool value)
+    {
+        if (!IsConnected)
+        {
+            yield break;
+        }
+
         var task = _client.WriteBitsAsync(device, new[] { value });
         yield return new WaitUntil(() => task.IsCompleted);
+
         if (task.IsFaulted)
+        {
             Debug.LogWarning($"[Network] 비트 쓰기 실패: {device} = {value}");
+        }
     }
 
     // ── 헬퍼 ────────────────────────────────────────────────────────
 
     private void UpdateSystemStatus(float soapPct)
     {
-        if      (soapPct <= 0f)  stationData.systemStatus = StationData.SystemStatus.Error;
-        else if (soapPct <= 20f) stationData.systemStatus = StationData.SystemStatus.Warning;
-        else                     stationData.systemStatus = StationData.SystemStatus.Normal;
+        if (soapPct <= 0f)
+        {
+            stationData.systemStatus = StationData.SystemStatus.Error;
+        }
+        else if (soapPct <= 20f)
+        {
+            stationData.systemStatus = StationData.SystemStatus.Warning;
+        }
+        else
+        {
+            stationData.systemStatus = StationData.SystemStatus.Normal;
+        }
     }
 
     private void SetStatus(string msg, bool connected)
@@ -658,7 +820,30 @@ public class NetworkManager : MonoBehaviour
     public void MockSimulateSoapUse()
     {
         if (_client is MockPLCClient mock)
+        {
+            // 비트(M0)를 ON으로 설정 → 폴링에서 상승 에지 검출 → ActivateSoap() 호출
+            mock.SetButtonBit(0, true);
+            // 비누 잔량도 감소 (실제 PLC 동작 시뮬레이션)
             mock.SimulateSoapUse(50);
+            // 잠시 후 비트 OFF (연속 시뮬레이션 가능하도록)
+            StartCoroutine(ResetButtonBitAfterDelay(mock, 0, 0.5f));
+        }
+        else
+            Debug.LogWarning("Mock 모드가 아닙니다.");
+    }
+
+    private IEnumerator ResetButtonBitAfterDelay(MockPLCClient mock, int index, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        mock.SetButtonBit(index, false);
+    }
+
+    /// <summary>비누 잔량 리셋 — Mock 모드 전용</summary>
+    [ContextMenu("Mock: 비누 잔량 리셋 (100%)")]
+    public void MockResetSoapLevel()
+    {
+        if (_client is MockPLCClient mock)
+            mock.ResetSoapLevel(1000);
         else
             Debug.LogWarning("Mock 모드가 아닙니다.");
     }
@@ -754,6 +939,33 @@ if (networkManager != null)
 
 ---
 
+## 9-8-1. StationController.cs 수정 — UseSoap() 제거
+
+> **중요**: PLC Master 패턴 적용으로 로컬에서 비누 잔량을 변경하지 않습니다.
+
+`ActivateSoap()` 메서드의 `onStart` 콜백에서 `stationData.UseSoap()` 호출을 제거해줘:
+
+**변경 전:**
+```csharp
+onStart: () =>
+{
+    stationData.UseSoap();      // ← 이 줄 제거
+    OnSoapUpdated?.Invoke();
+},
+```
+
+**변경 후:**
+```csharp
+// 비누 잔량 감소는 PLC(Mock)에서 처리 → NetworkManager 폴링으로 동기화
+onStart: () => OnSoapUpdated?.Invoke(),
+```
+
+**이유**:
+- 로컬에서 `soapLevel`을 변경하면 100ms 후 PLC 폴링에서 덮어써져 값이 복원됩니다
+- PLC(MockPLCClient)가 D0을 감소시키고, NetworkManager가 읽어와서 UI에 반영합니다
+
+---
+
 ## 9-9. 씬 조립
 
 1. `StationManager` GameObject에 `NetworkManager.cs` 컴포넌트 추가
@@ -768,10 +980,29 @@ if (networkManager != null)
 
 `PLCConfig.json` 의 `"useMock": true` 상태에서:
 
+### 방법 1: HMI 비누 버튼 직접 클릭 (권장)
+
 1. Unity Play 모드 진입
-2. `StationManager` 선택 → Inspector 우클릭 → **"Mock: 비누 사용 시뮬레이션"** 클릭
-3. 비누 게이지가 5% 감소, 20% 이하 시 헤더 LED 주황색 전환 확인
-4. Console 에서 `[Network] 가상 PLC 연결됨` 로그 확인
+2. HMI 화면에서 **비누 버튼** 클릭
+3. 확인 사항:
+   - 파티클 재생 (3초)
+   - Console: `[MockPLC] M0 상승 에지 → 비누 사용 시뮬레이션`
+   - 100ms 후 비누 게이지 5% 감소 (100% → 95%)
+   - **값이 복원되지 않고 유지됨** ← 핵심 확인 포인트
+
+### 방법 2: Inspector ContextMenu
+
+1. `StationManager` 선택 → Inspector 우클릭 → **"Mock: 비누 사용 시뮬레이션"** 클릭
+2. 비누 게이지가 5% 감소 확인
+3. **"Mock: 비누 잔량 리셋 (100%)"** 으로 초기화 가능
+
+### 공통 확인 사항
+
+| 조건 | 예상 결과 |
+|------|-----------|
+| 비누 20% 이하 | 헤더 LED 주황색 전환 |
+| 비누 0% | 헤더 LED 빨간색, 비누 버튼 비활성 |
+| Console 로그 | `[Network] 연결됨` 확인 |
 
 ---
 
@@ -927,7 +1158,8 @@ python fake_plc_server.py
 
 | 단계 | 확인 항목 |
 |------|-----------|
-| Mock 모드 | Console: `[Network] 가상 PLC 연결됨` |
+| Mock 모드 | Console: `[MockPLC] 가상 PLC 연결됨` |
+| **비누 버튼 클릭** | **게이지 감소 후 값 유지 (복원 안됨)** ← 핵심! |
 | Mock 시뮬레이션 | ContextMenu 클릭 → 게이지 감소 확인 |
 | Python 서버 | Console: `[SLMP] 연결 성공: 127.0.0.1:5007` |
 | Python 서버 | Python 터미널에서 읽기/쓰기 로그 출력 확인 |
@@ -935,3 +1167,32 @@ python fake_plc_server.py
 | 비누 0% | 헤더 LED 빨간색, 비누 버튼 비활성 |
 | 통신 오류 시 | 헤더 LED 주황색, "시스템 상태: 통신 오류" 표시 |
 | PLC 실물 연결 | `PLCConfig.json` 수정만으로 전환, 코드 변경 없음 |
+
+---
+
+## 아키텍처 참고: PLC Master 패턴
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        데이터 흐름                               │
+├─────────────────────────────────────────────────────────────────┤
+│  HMI 버튼 클릭                                                   │
+│       │                                                         │
+│       ├──→ StationController.ActivateSoap()                     │
+│       │         └──→ 파티클 재생, UI 상태 변경                   │
+│       │         └──→ (UseSoap() 호출 안함 - PLC가 처리)          │
+│       │                                                         │
+│       └──→ NetworkManager.WriteSoapButton(true)                 │
+│                 └──→ MockPLC.WriteBitsAsync() 호출              │
+│                       └──→ M0 상승 에지 감지                    │
+│                             └──→ SimulateSoapUse(50)            │
+│                                   └──→ D0 = D0 - 50             │
+│                                                                 │
+│  100ms 후 NetworkManager 폴링                                   │
+│       └──→ D0 읽기 → stationData.soapLevel 갱신                 │
+│             └──→ UI 자동 업데이트 (감소된 값 유지)               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**핵심**: `StationController`는 파티클만 재생하고, 비누 잔량 감소는 PLC(Mock)에서 처리합니다.
+이 패턴으로 HMI와 PLC 간 데이터 동기화 충돌을 방지합니다.
