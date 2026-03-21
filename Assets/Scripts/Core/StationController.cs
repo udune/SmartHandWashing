@@ -33,7 +33,19 @@ public class StationController : MonoBehaviour
     /// </summary>
     private bool IsAnyRunning()
     {
-        return stationData.isSoapRunning || stationData.isWaterRunning || stationData.isAirRunning;
+        if (stationData.isSoapRunning)
+        {
+            return true;
+        }
+        if (stationData.isWaterRunning)
+        {
+            return true;
+        }
+        if (stationData.isAirRunning)
+        {
+            return true;
+        }
+        return false;
     }
 
     public void ActivateSoap()
@@ -135,9 +147,27 @@ public class StationController : MonoBehaviour
     }
 
     // 타이머 남은 시간 조회용 (UI에서 폴링)
-    public float GetSoapRemaining()  => GetRemaining(_soapCoroutine,  3f);
-    public float GetWaterRemaining() => GetRemaining(_waterCoroutine, 10f);
-    public float GetAirRemaining()   => GetRemaining(_airCoroutine,   10f);
+    public float GetSoapRemaining()
+    {
+        return GetRemaining(_soapCoroutine, 3f);
+    }
 
-    private float GetRemaining(Coroutine c, float total) => c != null ? total : 0f;
+    public float GetWaterRemaining()
+    {
+        return GetRemaining(_waterCoroutine, 10f);
+    }
+
+    public float GetAirRemaining()
+    {
+        return GetRemaining(_airCoroutine, 10f);
+    }
+
+    private float GetRemaining(Coroutine c, float total)
+    {
+        if (c != null)
+        {
+            return total;
+        }
+        return 0f;
+    }
 }

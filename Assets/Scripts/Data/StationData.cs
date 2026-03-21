@@ -47,10 +47,12 @@ public class StationData : ScriptableObject
 
     public void ResetData()
     {
-        soapLevel     = 100f;
-        soapUseCount  = 0;
-        isSoapRunning = isWaterRunning = isAirRunning = false;
-        systemStatus  = SystemStatus.Normal;
+        soapLevel = 100f;
+        soapUseCount = 0;
+        isSoapRunning = false;
+        isWaterRunning = false;
+        isAirRunning = false;
+        systemStatus = SystemStatus.Normal;
         OnDataChanged?.Invoke();
     }
 }

@@ -9,6 +9,9 @@ public class HMIUIController : MonoBehaviour
     public StationController stationController;
     public RenderTexture viewerRenderTexture;
 
+    [Header("Network")]
+    public NetworkManager networkManager;   // Inspector에서 연결
+
     // UI 요소 캐시
     private Label _datetimeLabel;
     private Label _statusText;
@@ -50,15 +53,36 @@ public class HMIUIController : MonoBehaviour
             _viewer3D.style.backgroundImage = Background.FromRenderTexture(viewerRenderTexture);
         }
 
-        // 버튼 이벤트
-        _btnSoap.RegisterCallback<ClickEvent>(_  => stationController.ActivateSoap());
-        _btnWater.RegisterCallback<ClickEvent>(_ => stationController.ActivateWater());
-        _btnAir.RegisterCallback<ClickEvent>(_   => stationController.ActivateAir());
+        // 버튼 이벤트 (+ PLC 쓰기)
+        _btnSoap.RegisterCallback<ClickEvent>(_ =>
+        {
+            stationController.ActivateSoap();
+            networkManager?.WriteSoapButton(true);
+        });
+
+        _btnWater.RegisterCallback<ClickEvent>(_ =>
+        {
+            stationController.ActivateWater();
+            networkManager?.WriteWaterButton(true);
+        });
+
+        _btnAir.RegisterCallback<ClickEvent>(_ =>
+        {
+            stationController.ActivateAir();
+            networkManager?.WriteAirButton(true);
+        });
 
         // StationController 이벤트 구독
         stationController.OnSoapUpdated  += RefreshSoapUI;
         stationController.OnWaterUpdated += RefreshWaterUI;
         stationController.OnAirUpdated   += RefreshAirUI;
+
+        // NetworkManager 이벤트 구독
+        if (networkManager != null)
+        {
+            networkManager.OnConnectionChanged += OnNetworkConnectionChanged;
+            networkManager.OnStatusChanged     += OnNetworkStatusChanged;
+        }
 
         // 초기 UI 갱신
         UpdateGauge(stationController.stationData.soapLevel);
@@ -90,7 +114,36 @@ public class HMIUIController : MonoBehaviour
             _airRemain = Mathf.Max(0f, _airRemain - Time.deltaTime);
             _timerAir.text = _airRemain > 0 ? $"{_airRemain:F1}초" : "";
         }
+
+        // StationData 변경 감지 (NetworkManager에서 갱신됨)
+        UpdateGauge(stationController.stationData.soapLevel);
+        UpdateStatusLED(stationController.stationData.systemStatus);
     }
+
+    // ── Network 콜백 ────────────────────────────────────────────────
+
+    private void OnNetworkConnectionChanged(bool connected)
+    {
+        // 연결 상태를 헤더 시스템 LED에 반영
+        // connected=false 이면 통신 오류로 처리
+        if (!connected)
+        {
+            _statusLed.AddToClassList("warning");
+            _statusText.text = "시스템 상태: 통신 오류";
+        }
+        else
+        {
+            UpdateStatusLED(stationController.stationData.systemStatus);
+        }
+    }
+
+    private void OnNetworkStatusChanged(string msg)
+    {
+        // 필요 시 화면 하단 등에 상태 메시지 표시
+        Debug.Log($"[HMI] 네트워크 상태: {msg}");
+    }
+
+    // ── StationController 콜백 ─────────────────────────────────────
 
     void RefreshSoapUI()
     {
@@ -100,7 +153,10 @@ public class HMIUIController : MonoBehaviour
         {
             _soapRemain = 3f;
         }
-        else _timerSoap.text = "";
+        else
+        {
+            _timerSoap.text = "";
+        }
         UpdateGauge(stationController.stationData.soapLevel);
         UpdateStatusLED(stationController.stationData.systemStatus);
     }
@@ -113,7 +169,10 @@ public class HMIUIController : MonoBehaviour
         {
             _waterRemain = 10f;
         }
-        else _timerWater.text = "";
+        else
+        {
+            _timerWater.text = "";
+        }
     }
 
     void RefreshAirUI()
@@ -124,19 +183,22 @@ public class HMIUIController : MonoBehaviour
         {
             _airRemain = 10f;
         }
-        else _timerAir.text = "";
+        else
+        {
+            _timerAir.text = "";
+        }
     }
 
     void SetBtnActive(VisualElement btn, VisualElement led, bool active)
     {
         if (active)
         {
-            btn.AddToClassList("active"); 
+            btn.AddToClassList("active");
             led.AddToClassList("active");
         }
         else
         {
-            btn.RemoveFromClassList("active"); 
+            btn.RemoveFromClassList("active");
             led.RemoveFromClassList("active");
         }
     }
@@ -183,5 +245,12 @@ public class HMIUIController : MonoBehaviour
         stationController.OnSoapUpdated  -= RefreshSoapUI;
         stationController.OnWaterUpdated -= RefreshWaterUI;
         stationController.OnAirUpdated   -= RefreshAirUI;
+
+        // NetworkManager 이벤트 구독 해제
+        if (networkManager != null)
+        {
+            networkManager.OnConnectionChanged -= OnNetworkConnectionChanged;
+            networkManager.OnStatusChanged     -= OnNetworkStatusChanged;
+        }
     }
 }
