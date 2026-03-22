@@ -1,16 +1,24 @@
+/* 루트 컨테이너: 전체 화면을 채우는 세로 플렉스 레이아웃 */
 .root-container {
     width: 100%;
     height: 100%;
+    /* column: 헤더 → 콘텐츠 → 하단바 세로 배치 */
     flex-direction: column;
+    /* var(): Variables.uss에 정의된 CSS 변수 참조 */
     background-color: var(--color-bg);
 }
 
 /* ── 헤더 ── */
+/* 헤더 바: 타이틀, 날짜시간, 상태 표시 */
 .header-bar {
     height: 50px;
+    /* row: 가로 방향 배치 */
     flex-direction: row;
+    /* space-between: 양 끝 정렬 (타이틀 ↔ 상태) */
     justify-content: space-between;
+    /* center: 세로 중앙 정렬 */
     align-items: center;
+    /* padding: 상하 0, 좌우 20px */
     padding: 0 20px;
     background-color: var(--color-header);
     border-bottom-width: 1px;
@@ -19,12 +27,14 @@
 .header-title {
     color: var(--color-text);
     font-size: 16px;
+    /* -unity-font-style: Unity 전용, CSS의 font-weight에 해당 */
     -unity-font-style: bold;
 }
 .header-datetime {
     color: var(--color-subtext);
     font-size: 14px;
 }
+/* 상태 컨테이너: 텍스트 + LED 가로 배치 */
 .status-container {
     flex-direction: row;
     align-items: center;
@@ -34,25 +44,31 @@
     font-size: 14px;
     margin-right: 8px;
 }
+/* 상태 LED: border-radius로 원형 구현 (너비/2 = 7px) */
 .status-led {
     width: 14px;
     height: 14px;
     border-radius: 7px;
     background-color: var(--color-green);
 }
+/* 복합 선택자: C#에서 AddToClassList("warning")으로 적용 */
 .status-led.warning { background-color: var(--color-warning); }
 .status-led.error   { background-color: var(--color-error);   }
 
 /* ── 콘텐츠 영역 ── */
+/* 좌측 패널 + 3D 뷰어를 가로로 배치 */
 .content-area {
+    /* flex-grow: 1 = 남은 공간 전체 차지 (헤더/하단바 제외) */
     flex-grow: 1;
     flex-direction: row;
 }
 
 /* ── 좌측 게이지 패널 ── */
+/* 비누 잔량 게이지를 표시하는 사이드 패널 */
 .left-panel {
     width: 100px;
     background-color: var(--color-panel);
+    /* 자식 요소 가로 중앙 정렬 */
     align-items: center;
     padding: 20px 0;
     border-right-width: 1px;
@@ -68,19 +84,24 @@
     font-size: 11px;
     margin-bottom: 4px;
 }
+/* 게이지 트랙: 배경 바 */
 .gauge-track {
     width: 28px;
     flex-grow: 1;
     background-color: #1A2A3A;
     border-radius: 4px;
+    /* overflow: hidden = 자식이 부모 영역 밖으로 안 넘침 */
     overflow: hidden;
+    /* flex-end: 자식(fill)을 아래에서 위로 채움 */
     justify-content: flex-end;
 }
+/* 게이지 필: 채워지는 부분 (C#에서 style.height 동적 설정) */
 .gauge-fill {
     width: 100%;
     background-color: var(--color-green);
     border-radius: 4px;
 }
+/* 잔량에 따른 색상 변경 (20%이하=경고, 0%=오류) */
 .gauge-fill.warning { background-color: var(--color-warning); }
 .gauge-fill.error   { background-color: var(--color-error);   }
 .gauge-0-label {
@@ -88,6 +109,7 @@
     font-size: 11px;
     margin-top: 4px;
 }
+/* 퍼센트 라벨: "75%" 형식 */
 .gauge-pct-label {
     color: var(--color-text);
     font-size: 13px;
@@ -96,15 +118,21 @@
 }
 
 /* ── 중앙 3D 뷰어 ── */
+/* RenderTexture로 3D 모델을 표시하는 영역 */
 .viewer-container {
+    /* 남은 공간 전체 차지 (좌측 패널 제외) */
     flex-grow: 1;
+    /* 3D 뷰어를 정중앙에 배치 */
     align-items: center;
     justify-content: center;
     background-color: var(--color-bg);
 }
+/* #선택자: UXML의 name="3d-viewer" 요소 선택 */
 #3d-viewer {
+    /* scale-to-fit: RenderTexture 비율 유지하며 맞춤 */
     -unity-background-scale-mode: scale-to-fit;
 }
+/* 뷰어 타이틀: 절대 위치로 상단에 배치 */
 .viewer-title {
     position: absolute;
     top: 12px;
@@ -113,6 +141,7 @@
 }
 
 /* ── 하단 버튼 바 ── */
+/* 비누/물/에어 동작 버튼 영역 */
 .bottom-bar {
     height: 100px;
     flex-direction: row;
@@ -121,7 +150,9 @@
     border-top-color: #1E3A5F;
     padding: 8px;
 }
+/* 동작 버튼: 세 버튼이 동일 너비로 분배 (flex-grow: 1) */
 .action-btn {
+    /* flex-grow: 1 = 남은 공간을 균등 분배 */
     flex-grow: 1;
     flex-direction: row;
     align-items: center;
@@ -129,21 +160,26 @@
     background-color: var(--color-btn-idle);
     border-radius: var(--radius-btn);
     margin: 0 6px;
+    /* cursor: hand = 마우스 오버 시 손 모양 커서 */
     cursor: hand;
     border-width: 1px;
     border-color: #1E3A5F;
 }
+/* :hover = 의사 클래스, 마우스 오버 시 스타일 */
 .action-btn:hover {
     background-color: #1E3A5F;
 }
+/* .active = C#에서 AddToClassList("active")로 적용 */
 .action-btn.active {
     background-color: var(--color-btn-active);
     border-color: var(--color-accent);
 }
+/* 버튼 아이콘 (이모지 또는 아이콘 폰트) */
 .btn-icon {
     font-size: 28px;
     margin-right: 12px;
 }
+/* 버튼 내 텍스트 컨테이너 (이름 + 타이머 세로 배치) */
 .btn-content {
     flex-direction: column;
 }
@@ -152,16 +188,21 @@
     font-size: 16px;
     -unity-font-style: bold;
 }
+/* 타이머 텍스트: "3.0초" 형식 */
 .btn-timer {
     color: var(--color-subtext);
     font-size: 12px;
     margin-top: 2px;
 }
+/* 버튼 내 LED 인디케이터 */
 .btn-led {
     width: 10px;
     height: 10px;
+    /* border-radius: 5px = 원형 (너비/2) */
     border-radius: 5px;
+    /* 기본: 어두운 회색 (비활성) */
     background-color: #1A2A3A;
     margin-left: 12px;
 }
+/* 동작 중일 때 녹색으로 변경 */
 .btn-led.active { background-color: var(--color-green); }

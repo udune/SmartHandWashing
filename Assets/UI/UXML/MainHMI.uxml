@@ -1,38 +1,61 @@
+<!-- xmlns:ui = 런타임 UI 요소, editor-extension-mode="False" = 빌드에 포함 -->
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <!-- USS 스타일시트 연결 (Variables가 먼저 로드되어야 MainTheme에서 변수 참조 가능) -->
     <Style src="project://database/Assets/UI/USS/Variables.uss?fileID=7433441132597879392&amp;guid=204e9c5b1b2548c45811b427a255acf5&amp;type=3#Variables"/>
     <Style src="project://database/Assets/UI/USS/MainTheme.uss?fileID=7433441132597879392&amp;guid=7d24b36f7d3940f4e8110cc24d45aedf&amp;type=3#MainTheme"/>
+
+    <!-- 루트 컨테이너: 전체 화면을 채우는 세로 레이아웃 -->
     <ui:VisualElement name="root" class="root-container">
+
+        <!-- ═══ 헤더 바: 날짜시간 + 시스템 상태 ═══ -->
         <ui:VisualElement name="header" class="header-bar">
+            <!-- datetime-label: C#에서 1초마다 갱신 -->
             <ui:Label name="datetime-label" text="2024-01-01 00:00:00" class="header-datetime"/>
             <ui:VisualElement name="status-container" class="status-container">
                 <ui:Label name="status-text" text="시스템 상태: 정상" class="status-text"/>
+                <!-- status-led: AddToClassList("warning"/"error")로 색상 변경 -->
                 <ui:VisualElement name="status-led" class="status-led"/>
             </ui:VisualElement>
         </ui:VisualElement>
+        <!-- ═══ 콘텐츠 영역: 좌측 게이지 + 중앙 3D 뷰어 ═══ -->
         <ui:VisualElement name="content-area" class="content-area">
+
+            <!-- 좌측 패널: 비누 잔량 게이지 -->
             <ui:VisualElement name="left-panel" class="left-panel">
                 <ui:Label text="비누 잔량" class="gauge-label-title"/>
                 <ui:Label text="100% ─" class="gauge-100-label"/>
+                <!-- gauge-track: 게이지 배경, gauge-fill: 채워지는 부분 -->
                 <ui:VisualElement name="gauge-track" class="gauge-track">
+                    <!-- gauge-fill: C#에서 style.height = Length.Percent(n)로 높이 조절 -->
                     <ui:VisualElement name="gauge-fill" class="gauge-fill"/>
                 </ui:VisualElement>
                 <ui:Label text="0% ─" class="gauge-0-label"/>
                 <ui:Label name="gauge-pct-label" text="100%" class="gauge-pct-label"/>
             </ui:VisualElement>
+
+            <!-- 중앙 3D 뷰어: RenderTexture를 배경으로 표시 -->
             <ui:VisualElement name="viewer-container" class="viewer-container">
                 <ui:Label text="" class="viewer-title"/>
+                <!-- 3d-viewer: C#에서 Background.FromRenderTexture()로 RenderTexture 연결 -->
                 <ui:VisualElement name="3d-viewer" style="flex-grow: 1; width: 100%;"/>
             </ui:VisualElement>
         </ui:VisualElement>
+        <!-- ═══ 하단 버튼 바: 비누/물/에어 동작 버튼 ═══ -->
         <ui:VisualElement name="bottom-bar" class="bottom-bar">
+
+            <!-- 비누 버튼: RegisterCallback<ClickEvent>로 클릭 이벤트 처리 -->
             <ui:VisualElement name="btn-soap" class="action-btn">
                 <ui:Image source="project://database/Assets/Textures/UI/soap.png?fileID=2800000&amp;guid=df46afbe806a1ee4db68f3f098d5d033&amp;type=3#soap" style="padding-right: 15px;"/>
                 <ui:VisualElement class="btn-content">
                     <ui:Label text="비누" class="btn-name"/>
                 </ui:VisualElement>
+                <!-- timer-soap: 남은 시간 표시 ("3.0초") -->
                 <ui:Label name="timer-soap" text="" class="btn-timer"/>
+                <!-- led-soap: AddToClassList("active")로 녹색 점등 -->
                 <ui:VisualElement name="led-soap" class="btn-led"/>
             </ui:VisualElement>
+
+            <!-- 물 버튼 -->
             <ui:VisualElement name="btn-water" class="action-btn">
                 <ui:Image source="project://database/Assets/Textures/UI/water.png?fileID=2800000&amp;guid=f9b1a03f254dbfc41ae385389d881d29&amp;type=3#water" tint-color="rgb(255, 255, 255)" style="padding-right: 15px;"/>
                 <ui:VisualElement class="btn-content">
@@ -41,6 +64,8 @@
                 <ui:Label name="timer-water" text="" class="btn-timer"/>
                 <ui:VisualElement name="led-water" class="btn-led"/>
             </ui:VisualElement>
+
+            <!-- 에어 드라이 버튼 -->
             <ui:VisualElement name="btn-air" class="action-btn">
                 <ui:Image source="project://database/Assets/Textures/UI/dry.png?fileID=2800000&amp;guid=2c53c4fa88e73874abc2e08682022965&amp;type=3#dry" style="padding-right: 15px;"/>
                 <ui:VisualElement class="btn-content">
@@ -50,5 +75,6 @@
                 <ui:VisualElement name="led-air" class="btn-led"/>
             </ui:VisualElement>
         </ui:VisualElement>
+
     </ui:VisualElement>
 </ui:UXML>
