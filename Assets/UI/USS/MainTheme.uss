@@ -61,6 +61,8 @@
     /* flex-grow: 1 = 남은 공간 전체 차지 (헤더/하단바 제외) */
     flex-grow: 1;
     flex-direction: row;
+    /* position: relative = 자식의 absolute 위치 기준점 */
+    position: relative;
 }
 
 /* ── 좌측 게이지 패널 ── */
@@ -206,3 +208,55 @@
 }
 /* 동작 중일 때 녹색으로 변경 */
 .btn-led.active { background-color: var(--color-green); }
+
+/* ════════════════════════════════════════
+   층수 선택 패널 (표시 전용)
+   ════════════════════════════════════════ */
+
+.floor-panel {
+    width: 168px;
+    background-color: var(--color-panel);
+    border-right-width: 1px;
+    border-right-color: #1E3A5F;
+    padding: 10px 8px;
+    overflow: hidden;
+}
+
+.floor-panel-title {
+    color: var(--color-subtext);
+    font-size: 12px;
+    margin-bottom: 8px;
+    -unity-text-align: middle-center;
+}
+
+/* ── 층 항목 공통 ── */
+.floor-item {
+    min-height: 48px;
+    background-color: var(--color-btn-idle);
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: #1E3A5F;
+    margin-bottom: 5px;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 4px 10px;
+}
+
+.floor-item-text {
+    color: var(--color-subtext);
+    font-size: 12px;
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
+/* ── 선택된 층 (8F 고정) ── */
+.floor-item.selected {
+    background-color: #1B5E20;
+    border-color: #00E676;
+    border-width: 1px;
+}
+
+.floor-item.selected .floor-item-text {
+    color: #00E676;
+    -unity-font-style: bold;
+}
