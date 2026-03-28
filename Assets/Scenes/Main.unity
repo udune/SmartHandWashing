@@ -600,7 +600,7 @@ Transform:
   m_GameObject: {fileID: 1768961766}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0.21643952, z: 0, w: 0.97629607}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -0.15, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -619,6 +619,8 @@ GameObject:
   - component: {fileID: 1817469985}
   - component: {fileID: 1817469987}
   - component: {fileID: 1817469986}
+  - component: {fileID: 1817469988}
+  - component: {fileID: 1817469989}
   m_Layer: 0
   m_Name: UIRoot
   m_TagString: Untagged
@@ -695,6 +697,35 @@ MonoBehaviour:
   stationController: {fileID: 2066935067}
   viewerRenderTexture: {fileID: 8400000, guid: 76e9170be705c6342b4a00f749ac5cb4, type: 2}
   networkManager: {fileID: 2066935068}
+--- !u!114 &1817469988
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1817469983}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2afe3d2aaca45940b9b976c617d01c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AnalyticsPanel
+  uiDocument: {fileID: 1817469985}
+  logger: {fileID: 2066935070}
+  stationData: {fileID: 11400000, guid: 72b0ef9a2f3b700449d2ea288a74d819, type: 2}
+--- !u!114 &1817469989
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1817469983}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 51de3a7d05f5d4a44b0ac5158d647319, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AlarmBanner
+  uiDocument: {fileID: 1817469985}
+  analyticsPanel: {fileID: 1817469988}
 --- !u!1 &2049155019
 GameObject:
   m_ObjectHideFlags: 0
@@ -739,6 +770,8 @@ GameObject:
   - component: {fileID: 2066935066}
   - component: {fileID: 2066935067}
   - component: {fileID: 2066935068}
+  - component: {fileID: 2066935070}
+  - component: {fileID: 2066935069}
   m_Layer: 0
   m_Name: StationManager
   m_TagString: Untagged
@@ -790,7 +823,33 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkManager
   stationData: {fileID: 11400000, guid: 72b0ef9a2f3b700449d2ea288a74d819, type: 2}
-  stationController: {fileID: 0}
+  stationController: {fileID: 2066935067}
+--- !u!114 &2066935069
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2066935065}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f1db8c5194302874b9dac6d43efd4a32, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::APIClient
+  logger: {fileID: 2066935070}
+--- !u!114 &2066935070
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2066935065}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd7059b0f29a4c44da6c60e94ec72832, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SoapUsageLogger
+  stationData: {fileID: 11400000, guid: 72b0ef9a2f3b700449d2ea288a74d819, type: 2}
 --- !u!1001 &7817398334363682302
 PrefabInstance:
   m_ObjectHideFlags: 0
