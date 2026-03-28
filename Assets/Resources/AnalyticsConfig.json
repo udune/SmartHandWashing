@@ -1,0 +1,15 @@
+{
+  "stationId": "station-01",
+  "stationName": "스마트 손 씻기 스테이션",
+  "apiBaseUrl": "",
+  "apiEnabled": false,
+  "apiTimeoutMs": 5000,
+  "maxQueueSize": 1000,
+  "batchSendSize": 50,
+  "prediction": {
+    "lookbackDays": 7,
+    "warnDays": 7,
+    "alertDays": 3
+  },
+  "soapDecreasePerUse": 5.0
+}
