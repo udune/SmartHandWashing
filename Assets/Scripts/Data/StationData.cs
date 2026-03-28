@@ -21,6 +21,10 @@ public class StationData : ScriptableObject
     // 1회 사용당 감소량 (기본 5%)
     public float soapDecreasePerUse = 5f;
 
+    [Header("Analytics")]
+    // 시간대별 누적 (런타임 캐시용) - SoapUsageLogger와 동기화
+    public int[] hourlyUsageCount = new int[24];
+
     [Header("Running State")]
     // 각 디스펜서의 현재 작동 여부 (인터락 체크 및 UI LED 상태에 사용)
     public bool isSoapRunning = false;

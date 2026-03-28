@@ -67,6 +67,9 @@ public class StationController : MonoBehaviour
             return;
         }
 
+        // ── 추가: 사용 전 잔량 기록 (Analytics 로깅용) ──
+        float levelBefore = stationData.soapLevel;
+
         // 기존 코루틴 정지 후 새로 시작 (중복 실행 방지)
         if (_soapCoroutine != null)
         {
@@ -80,7 +83,12 @@ public class StationController : MonoBehaviour
             duration: 3f,
             particle: soapParticle,
             // 비누 잔량 감소는 PLC(Mock)에서 처리 → NetworkManager 폴링으로 동기화
-            onStart: () => OnSoapUpdated?.Invoke(),
+            onStart: () =>
+            {
+                // ── 추가: 로거에 비누 사용 이벤트 기록 ──
+                SoapUsageLogger.Instance?.LogSoap(levelBefore, stationData.soapLevel);
+                OnSoapUpdated?.Invoke();
+            },
             onEnd:   () => OnSoapUpdated?.Invoke()
         ));
     }
@@ -103,7 +111,12 @@ public class StationController : MonoBehaviour
             setter: v => stationData.isWaterRunning = v,
             duration: 10f,
             particle: waterParticle,
-            onStart: () => OnWaterUpdated?.Invoke(),
+            onStart: () =>
+            {
+                // ── 추가: 로거에 물 사용 이벤트 기록 ──
+                SoapUsageLogger.Instance?.LogWater();
+                OnWaterUpdated?.Invoke();
+            },
             onEnd:   () => OnWaterUpdated?.Invoke()
         ));
     }
@@ -126,7 +139,12 @@ public class StationController : MonoBehaviour
             setter: v => stationData.isAirRunning = v,
             duration: 10f,
             particle: airParticle,
-            onStart: () => OnAirUpdated?.Invoke(),
+            onStart: () =>
+            {
+                // ── 추가: 로거에 에어 사용 이벤트 기록 ──
+                SoapUsageLogger.Instance?.LogAir();
+                OnAirUpdated?.Invoke();
+            },
             onEnd:   () => OnAirUpdated?.Invoke()
         ));
     }
