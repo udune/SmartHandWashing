@@ -1,0 +1,38 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+  <Style src="project://database/Assets/UI/USS/AnalyticsTheme.uss"/>
+
+  <ui:VisualElement name="analytics-panel" class="analytics-panel">
+
+    <!-- 헤더 -->
+    <ui:VisualElement class="analytics-header">
+      <ui:Label class="analytics-title" text="비누 사용량 분석"/>
+    </ui:VisualElement>
+
+    <!-- 피크 시간대 -->
+    <ui:VisualElement class="peak-row">
+      <ui:Label class="peak-label" text="가장 많은 사용 시간대:"/>
+      <ui:Label name="peak-time-label" class="peak-value" text="--:-- - --:--"/>
+    </ui:VisualElement>
+
+    <!-- 막대 그래프 -->
+    <ui:VisualElement class="chart-container">
+      <!-- BarChartElement는 C#에서 동적 생성하여 이 컨테이너에 추가 -->
+      <ui:VisualElement name="bar-chart-container" class="bar-chart"/>
+      <!-- X축 레이블 -->
+      <ui:VisualElement class="x-axis-labels">
+        <ui:Label class="axis-label" text="0"/>
+        <ui:Label class="axis-label" text="6"/>
+        <ui:Label class="axis-label" text="12"/>
+        <ui:Label class="axis-label" text="18"/>
+        <ui:Label class="axis-label" text="24"/>
+      </ui:VisualElement>
+    </ui:VisualElement>
+
+    <!-- 통계 요약 -->
+    <ui:VisualElement class="stats-row">
+      <ui:Label name="avg-compare-label" class="stats-text"
+                text="전체 평균 대비 --% 사용량"/>
+    </ui:VisualElement>
+
+  </ui:VisualElement>
+</ui:UXML>

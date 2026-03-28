@@ -1,0 +1,29 @@
+<!-- AlarmBanner.uxml: 비누 교체 예측 알람 배너 -->
+<!-- 사용처: MainHMI.uxml에 포함되어 상단 중앙에 표시 -->
+<!-- 제어: AlarmBanner.cs가 alarm-hidden 클래스를 토글하여 표시/숨김 -->
+
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+
+  <!-- 스타일시트 참조: AnalyticsTheme.uss에서 .alarm-* 클래스 정의 -->
+  <Style src="project://database/Assets/UI/USS/AnalyticsTheme.uss"/>
+
+  <!-- 알람 배너 컨테이너 -->
+  <!-- name="alarm-banner": C#에서 Q<VisualElement>("alarm-banner")로 참조 -->
+  <!-- class="alarm-banner": 기본 스타일 (위치, 크기, 배경) -->
+  <!-- class="alarm-hidden": 초기 상태 숨김 (display: none) -->
+  <ui:VisualElement name="alarm-banner" class="alarm-banner alarm-hidden">
+
+    <!-- 경고 아이콘: 이모지 사용 (별도 이미지 불필요) -->
+    <ui:Label class="alarm-icon" text="⚠"/>
+
+    <!-- 메인 메시지: "D-3 비누 교체 필요" 등 -->
+    <!-- name="alarm-message": C#에서 텍스트 동적 변경 -->
+    <ui:Label name="alarm-message" class="alarm-message" text=""/>
+
+    <!-- 상세 정보: "일평균 15.2회 사용 기준" 등 -->
+    <!-- name="alarm-detail": C#에서 텍스트 동적 변경 -->
+    <ui:Label name="alarm-detail" class="alarm-detail" text=""/>
+
+  </ui:VisualElement>
+
+</ui:UXML>

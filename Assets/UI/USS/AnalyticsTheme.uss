@@ -1,0 +1,156 @@
+/* ── 분석 패널 ── */
+.analytics-panel {
+    width: 320px;
+    min-height: 200px;
+    background-color: #0D1F2D;
+    border-radius: 12px;
+    border-width: 1px;
+    border-color: #00E676;
+    padding: 14px;
+    /* 절대 위치 대신 우측 상단 고정 마진 사용 */
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+
+.analytics-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.analytics-title {
+    color: #E0E0E0;
+    font-size: 15px;
+    -unity-font-style: bold;
+}
+
+.analytics-close {
+    width: 24px;
+    height: 24px;
+    background-color: transparent;
+    border-width: 0;
+    color: #78909C;
+    font-size: 14px;
+    padding: 0;
+    cursor: hand;
+}
+
+/* ── 피크 시간대 ── */
+.peak-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.peak-label {
+    color: #B0BEC5;
+    font-size: 12px;
+    margin-right: 6px;
+}
+
+.peak-value {
+    color: #FF9100;
+    font-size: 14px;
+    -unity-font-style: bold;
+}
+
+/* ── 그래프 영역 ── */
+.chart-container {
+    height: 100px;
+    margin-bottom: 4px;
+}
+
+.bar-chart {
+    flex-grow: 1;
+    height: 80px;
+}
+
+.x-axis-labels {
+    flex-direction: row;
+    justify-content: space-between;
+    height: 16px;
+    padding: 0 8px;
+}
+
+.axis-label {
+    color: #546E7A;
+    font-size: 10px;
+}
+
+/* ── 통계 요약 ── */
+.stats-row {
+    margin-top: 6px;
+    align-items: center;
+}
+
+.stats-text {
+    color: #B0BEC5;
+    font-size: 12px;
+}
+
+.stats-highlight {
+    color: #00E676;
+    -unity-font-style: bold;
+}
+
+/* ── 알람 배너 ── */
+.alarm-banner {
+    flex-direction: row;
+    align-items: center;
+    padding: 10px 16px;
+    border-radius: 8px;
+    margin: 4px 8px;
+    /* 절대 위치: content-area 상단 중앙에 배치 */
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    translate: -50% 0;
+}
+
+.alarm-banner.alarm-warn {
+    background-color: #2D1F00;
+    border-width: 1px;
+    border-color: #FF9100;
+}
+
+.alarm-banner.alarm-alert {
+    background-color: #2D0000;
+    border-width: 1px;
+    border-color: #FF1744;
+}
+
+.alarm-hidden {
+    display: none;
+}
+
+.alarm-icon {
+    font-size: 18px;
+    margin-right: 10px;
+    color: #FF9100;
+}
+
+.alarm-banner.alarm-alert .alarm-icon {
+    color: #FF1744;
+}
+
+.alarm-message {
+    color: #E0E0E0;
+    font-size: 13px;
+    -unity-font-style: bold;
+    flex-grow: 1;
+}
+
+.alarm-detail {
+    color: #78909C;
+    font-size: 11px;
+    margin-top: 2px;
+}
+
+/* ── 알람 텍스트 컬럼 ── */
+.alarm-text-col {
+    flex-direction: column;
+    flex-grow: 1;
+}
