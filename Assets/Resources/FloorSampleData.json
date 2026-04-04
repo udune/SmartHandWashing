@@ -1,0 +1,60 @@
+{
+  "floors": [
+    {
+      "floorId":    "1F",
+      "floorName":  "꿈드림공작소",
+      "soapLevel":  72.0,
+      "isRealPLC":  false,
+      "hourlyUsage": [0,0,0,0,0,0,1,2,3,4,3,3,8,5,4,3,2,1,0,0,0,0,0,0]
+    },
+    {
+      "floorId":    "2F",
+      "floorName":  "학장실",
+      "soapLevel":  90.0,
+      "isRealPLC":  false,
+      "hourlyUsage": [0,0,0,0,0,0,1,2,4,6,4,3,5,3,2,2,1,0,0,0,0,0,0,0]
+    },
+    {
+      "floorId":    "3F",
+      "floorName":  "행정처 / 교무기획처",
+      "soapLevel":  55.0,
+      "isRealPLC":  false,
+      "hourlyUsage": [0,0,0,0,0,0,2,3,5,6,5,4,7,8,5,4,3,2,1,0,0,0,0,0]
+    },
+    {
+      "floorId":    "4F",
+      "floorName":  "친환경산업디자인학과",
+      "soapLevel":  63.0,
+      "isRealPLC":  false,
+      "hourlyUsage": [0,0,0,0,0,0,1,3,5,7,5,4,6,5,4,3,2,1,0,0,0,0,0,0]
+    },
+    {
+      "floorId":    "5F",
+      "floorName":  "기계과 / 친환경산업디자인학과",
+      "soapLevel":  41.0,
+      "isRealPLC":  false,
+      "hourlyUsage": [0,0,0,0,0,0,2,4,6,8,6,5,9,7,5,4,3,2,1,0,0,0,0,0]
+    },
+    {
+      "floorId":    "6F",
+      "floorName":  "미래형자동차학과 / 메카트로닉스학과",
+      "soapLevel":  78.0,
+      "isRealPLC":  false,
+      "hourlyUsage": [0,0,0,0,0,0,1,2,4,5,4,3,6,5,4,3,2,1,0,0,0,0,0,0]
+    },
+    {
+      "floorId":    "7F",
+      "floorName":  "메카트로닉스학과",
+      "soapLevel":  33.0,
+      "isRealPLC":  false,
+      "hourlyUsage": [0,0,0,0,0,0,2,4,7,9,7,6,10,8,6,5,4,3,2,1,0,0,0,0]
+    },
+    {
+      "floorId":    "8F",
+      "floorName":  "스마트자동화학과",
+      "soapLevel":  85.0,
+      "isRealPLC":  true,
+      "hourlyUsage": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    }
+  ]
+}
