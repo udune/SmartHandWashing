@@ -260,3 +260,42 @@
     color: #00E676;
     -unity-font-style: bold;
 }
+
+/* ════════════════════════════════════════
+   1F~7F 선택 시 비누/물/에어 버튼 비활성화
+   ════════════════════════════════════════ */
+
+/* 비활성 버튼: 반투명 처리 */
+.action-btn.btn-disabled {
+    opacity: 0.35;
+    cursor: arrow;
+}
+
+/* floor-item 클릭 가능 표시 */
+.floor-item {
+    cursor: hand;
+}
+
+/* ════════════════════════════════════════
+   모드 토글 버튼 (PLC MODE / TEST MODE)
+   ════════════════════════════════════════ */
+
+.mode-btn {
+    height: 28px;
+    padding: 0 12px;
+    margin-right: 12px;
+    background-color: #1A2A3A;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: #2196F3;
+    color: #2196F3;
+    font-size: 12px;
+    -unity-font-style: bold;
+    cursor: hand;
+}
+
+.mode-btn.mode-test {
+    background-color: #2D1B00;
+    border-color: #FF9100;
+    color: #FF9100;
+}

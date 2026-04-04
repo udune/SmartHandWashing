@@ -6,6 +6,7 @@
         <ui:VisualElement name="header" class="header-bar">
             <ui:Label name="datetime-label" text="2024-01-01 00:00:00" class="header-datetime"/>
             <ui:VisualElement name="status-container" class="status-container">
+                <ui:Button name="btn-mode-toggle" class="mode-btn" text="PLC MODE"/>
                 <ui:Label name="status-text" text="시스템 상태: 정상" class="status-text"/>
                 <ui:VisualElement name="status-led" class="status-led"/>
             </ui:VisualElement>
@@ -50,28 +51,30 @@
                 <ui:Label name="gauge-pct-label" text="100%" class="gauge-pct-label"/>
             </ui:VisualElement>
             <ui:VisualElement name="floor-panel" class="floor-panel" style="justify-content: center;">
-                <ui:VisualElement class="floor-item">
+                <!-- 층 버튼: name 속성 추가 (floor-1f ~ floor-8f) -->
+                <ui:VisualElement name="floor-1f" class="floor-item">
                     <ui:Label text="1F - 꿈드림공작소" class="floor-item-text"/>
                 </ui:VisualElement>
-                <ui:VisualElement class="floor-item">
+                <ui:VisualElement name="floor-2f" class="floor-item">
                     <ui:Label text="2F - 학장실" class="floor-item-text"/>
                 </ui:VisualElement>
-                <ui:VisualElement class="floor-item">
+                <ui:VisualElement name="floor-3f" class="floor-item">
                     <ui:Label text="3F - 행정처 / 교무기획처" class="floor-item-text"/>
                 </ui:VisualElement>
-                <ui:VisualElement class="floor-item">
+                <ui:VisualElement name="floor-4f" class="floor-item">
                     <ui:Label text="4F - 친환경산업디자인학과" class="floor-item-text"/>
                 </ui:VisualElement>
-                <ui:VisualElement class="floor-item">
+                <ui:VisualElement name="floor-5f" class="floor-item">
                     <ui:Label text="5F - 기계과 / 친환경산업디자인학과" class="floor-item-text"/>
                 </ui:VisualElement>
-                <ui:VisualElement class="floor-item">
+                <ui:VisualElement name="floor-6f" class="floor-item">
                     <ui:Label text="6F - 미래형자동차학과 / 메카트로닉스학과" class="floor-item-text"/>
                 </ui:VisualElement>
-                <ui:VisualElement class="floor-item">
+                <ui:VisualElement name="floor-7f" class="floor-item">
                     <ui:Label text="7F - 메카트로닉스학과" class="floor-item-text"/>
                 </ui:VisualElement>
-                <ui:VisualElement class="floor-item selected">
+                <!-- 8F: 기본 선택 상태 (selected 클래스 유지) -->
+                <ui:VisualElement name="floor-8f" class="floor-item selected">
                     <ui:Label text="8F - 스마트자동화학과" class="floor-item-text"/>
                 </ui:VisualElement>
             </ui:VisualElement>
