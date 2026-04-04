@@ -1,210 +1,297 @@
-// UnityEngine: MonoBehaviour, ParticleSystem, Coroutine 등 Unity 핵심 API
 using UnityEngine;
-// System: Action 델리게이트 타입 (이벤트 콜백용)
 using System;
-// System.Collections: IEnumerator 인터페이스 (코루틴 반환 타입)
 using System.Collections;
 
-// 손 세정 스테이션의 3가지 디스펜서(비누, 물, 에어)를 제어하는 컨트롤러
+/// <summary>
+/// PLC 신호(isSoapRunning / isWaterRunning / isAirRunning) 를 읽어
+/// 파티클과 UI 상태를 반영하는 컨트롤러.
+///
+/// 동작 규칙:
+///   - PLC 모드: NetworkManager 폴링이 신호를 갱신 → 이 클래스가 감지해 파티클 On/Off
+///   - TEST 모드: 버튼 클릭 시 코루틴으로 타이머 동작 (AppModeManager로 전환)
+///   - 1F~7F 선택 중에는 FloorManager.IsRealPLCFloor = false → 모든 신호 무시
+/// </summary>
 public class StationController : MonoBehaviour
 {
-    // [Header]: Inspector에서 필드를 그룹화하여 표시
     [Header("Data")]
-    // StationData: ScriptableObject 참조 (MVC의 Model 역할)
     public StationData stationData;
 
     [Header("Particles")]
-    // ParticleSystem: 각 디스펜서 작동 시 재생할 파티클 이펙트 (씬의 ParticleRoot 하위)
     public ParticleSystem soapParticle;
     public ParticleSystem waterParticle;
     public ParticleSystem airParticle;
 
-    // event Action: 옵저버 패턴 구현 - HMIUIController가 구독하여 UI 갱신
-    public event Action OnSoapUpdated;
-    public event Action OnWaterUpdated;
-    public event Action OnAirUpdated;
+    [Header("Timing (TEST Mode)")]
+    [Tooltip("TEST 모드에서 비누 동작 시간 (초)")]
+    public float soapDuration = 5f;
+    [Tooltip("TEST 모드에서 물 동작 시간 (초)")]
+    public float waterDuration = 8f;
+    [Tooltip("TEST 모드에서 에어 동작 시간 (초)")]
+    public float airDuration = 8f;
 
-    // Coroutine 핸들: 중복 실행 방지 및 StopCoroutine() 호출에 사용
+    private bool _prevSoap;
+    private bool _prevWater;
+    private bool _prevAir;
+
     private Coroutine _soapCoroutine;
     private Coroutine _waterCoroutine;
     private Coroutine _airCoroutine;
 
-    // Awake(): Start()보다 먼저 호출되는 초기화 콜백
+    public event Action OnSoapUpdated;
+    public event Action OnWaterUpdated;
+    public event Action OnAirUpdated;
+
     void Awake()
     {
-        // Play Mode 시작 시 상태 초기화 (ScriptableObject 값 유지 문제 방지)
         stationData.isSoapRunning = false;
         stationData.isWaterRunning = false;
         stationData.isAirRunning = false;
     }
 
-    /// <summary>
-    /// 인터락 체크: 어떤 dispenser든 실행 중이면 true
-    /// </summary>
-    private bool IsAnyRunning()
+    void Update()
     {
-        if (stationData.isSoapRunning)
-        {
-            return true;
-        }
-        if (stationData.isWaterRunning)
-        {
-            return true;
-        }
-        if (stationData.isAirRunning)
-        {
-            return true;
-        }
-        return false;
-    }
+        bool plcActive = FloorManager.Instance == null
+                         || FloorManager.Instance.IsRealPLCFloor;
 
-    // 비누 디스펜서 활성화 (3초 작동, 잔량 소모)
-    public void ActivateSoap()
-    {
-        // 인터락: 다른 동작 중이면 실행 불가
-        if (IsAnyRunning() || stationData.soapLevel <= 0f)
+        if (!plcActive)
+        {
+            ForceStopAll();
+            return;
+        }
+
+        // TEST 모드에서는 코루틴이 상태를 관리하므로 PLC 신호 체크 스킵
+        if (AppModeManager.IsTestMode)
         {
             return;
         }
 
-        // ── 추가: 사용 전 잔량 기록 (Analytics 로깅용) ──
-        float levelBefore = stationData.soapLevel;
+        CheckSignal(stationData.isSoapRunning, ref _prevSoap, soapParticle, OnSoapUpdated);
+        CheckSignal(stationData.isWaterRunning, ref _prevWater, waterParticle, OnWaterUpdated);
+        CheckSignal(stationData.isAirRunning, ref _prevAir, airParticle, OnAirUpdated);
+    }
 
-        // 기존 코루틴 정지 후 새로 시작 (중복 실행 방지)
+    private void CheckSignal(bool current, ref bool prev, ParticleSystem particle, Action onChanged)
+    {
+        if (current == prev)
+        {
+            return;
+        }
+
+        prev = current;
+
+        if (particle != null)
+        {
+            if (current)
+            {
+                particle.gameObject.SetActive(true);
+                particle.Play();
+            }
+            else
+            {
+                particle.Stop();
+            }
+        }
+
+        onChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// 비누/물/에어 중 하나라도 동작 중이면 true.
+    /// PLC 모드·TEST 모드 공통으로 사용하는 인터록 조건.
+    /// </summary>
+    private bool IsAnyRunning =>
+        stationData.isSoapRunning ||
+        stationData.isWaterRunning ||
+        stationData.isAirRunning;
+
+    public void RequestSoap()
+    {
+        if (FloorManager.Instance != null && !FloorManager.Instance.IsRealPLCFloor)
+        {
+            return;
+        }
+
+        if (IsAnyRunning)
+        {
+            return;
+        }
+
+        if (stationData.soapLevel <= 0f)
+        {
+            return;
+        }
+
+        if (AppModeManager.IsTestMode)
+        {
+            ActivateSoap();
+            return;
+        }
+
+        // PLC 모드: PLC에 신호 쓰기
+        NetworkManager.Instance?.WriteSoapButton(true);
+    }
+
+    public void RequestWater()
+    {
+        if (FloorManager.Instance != null && !FloorManager.Instance.IsRealPLCFloor)
+        {
+            return;
+        }
+
+        if (IsAnyRunning)
+        {
+            return;
+        }
+
+        if (AppModeManager.IsTestMode)
+        {
+            ActivateWater();
+            return;
+        }
+
+        NetworkManager.Instance?.WriteWaterButton(true);
+    }
+
+    public void RequestAir()
+    {
+        if (FloorManager.Instance != null && !FloorManager.Instance.IsRealPLCFloor)
+        {
+            return;
+        }
+
+        if (IsAnyRunning)
+        {
+            return;
+        }
+
+        if (AppModeManager.IsTestMode)
+        {
+            ActivateAir();
+            return;
+        }
+
+        NetworkManager.Instance?.WriteAirButton(true);
+    }
+
+    private void ActivateSoap()
+    {
         if (_soapCoroutine != null)
         {
             StopCoroutine(_soapCoroutine);
         }
 
-        // StartCoroutine(): 코루틴 시작하고 핸들 반환
-        _soapCoroutine = StartCoroutine(RunDispenser(
-            // Lambda 표현식: v => 로 상태 변경 로직을 콜백으로 전달
-            setter: v => stationData.isSoapRunning = v,
-            duration: 3f,
-            particle: soapParticle,
-            // 비누 잔량 감소는 PLC(Mock)에서 처리 → NetworkManager 폴링으로 동기화
-            onStart: () =>
-            {
-                // ── 추가: 로거에 비누 사용 이벤트 기록 ──
-                SoapUsageLogger.Instance?.LogSoap(levelBefore, stationData.soapLevel);
-                OnSoapUpdated?.Invoke();
-            },
-            onEnd:   () => OnSoapUpdated?.Invoke()
-        ));
-    }
+        // 인터록: 코루틴 시작 전에 즉시 running 상태 설정
+        stationData.isSoapRunning = true;
+        _prevSoap = true;
 
-    // 물 디스펜서 활성화 (10초 작동, 잔량 무제한)
-    public void ActivateWater()
-    {
-        // 인터락: 다른 동작 중이면 실행 불가
-        if (IsAnyRunning())
+        float levelBefore = stationData.soapLevel;
+        stationData.UseSoap();
+
+        // 파티클 즉시 시작
+        if (soapParticle != null)
         {
-            return;
+            soapParticle.gameObject.SetActive(true);
+            soapParticle.Play();
         }
 
+        SoapUsageLogger.Instance?.LogSoap(levelBefore, stationData.soapLevel);
+        OnSoapUpdated?.Invoke();
+
+        _soapCoroutine = StartCoroutine(DispenserTimer(soapDuration, () =>
+        {
+            stationData.isSoapRunning = false;
+            _prevSoap = false;
+            soapParticle?.Stop();
+            OnSoapUpdated?.Invoke();
+        }));
+    }
+
+    private void ActivateWater()
+    {
         if (_waterCoroutine != null)
         {
             StopCoroutine(_waterCoroutine);
         }
 
-        _waterCoroutine = StartCoroutine(RunDispenser(
-            setter: v => stationData.isWaterRunning = v,
-            duration: 10f,
-            particle: waterParticle,
-            onStart: () =>
-            {
-                // ── 추가: 로거에 물 사용 이벤트 기록 ──
-                SoapUsageLogger.Instance?.LogWater();
-                OnWaterUpdated?.Invoke();
-            },
-            onEnd:   () => OnWaterUpdated?.Invoke()
-        ));
-    }
+        stationData.isWaterRunning = true;
+        _prevWater = true;
 
-    // 에어 드라이어 활성화 (10초 작동, 잔량 무제한)
-    public void ActivateAir()
-    {
-        // 인터락: 다른 동작 중이면 실행 불가
-        if (IsAnyRunning())
+        if (waterParticle != null)
         {
-            return;
+            waterParticle.gameObject.SetActive(true);
+            waterParticle.Play();
         }
 
+        SoapUsageLogger.Instance?.LogWater();
+        OnWaterUpdated?.Invoke();
+
+        _waterCoroutine = StartCoroutine(DispenserTimer(waterDuration, () =>
+        {
+            stationData.isWaterRunning = false;
+            _prevWater = false;
+            waterParticle?.Stop();
+            OnWaterUpdated?.Invoke();
+        }));
+    }
+
+    private void ActivateAir()
+    {
         if (_airCoroutine != null)
         {
             StopCoroutine(_airCoroutine);
         }
 
-        _airCoroutine = StartCoroutine(RunDispenser(
-            setter: v => stationData.isAirRunning = v,
-            duration: 10f,
-            particle: airParticle,
-            onStart: () =>
-            {
-                // ── 추가: 로거에 에어 사용 이벤트 기록 ──
-                SoapUsageLogger.Instance?.LogAir();
-                OnAirUpdated?.Invoke();
-            },
-            onEnd:   () => OnAirUpdated?.Invoke()
-        ));
-    }
+        stationData.isAirRunning = true;
+        _prevAir = true;
 
-    // 제네릭 디스펜서 코루틴: Action 파라미터로 비누/물/에어 공통 처리
-    // IEnumerator: 코루틴 반환 타입
-    private IEnumerator RunDispenser(
-        Action<bool> setter, float duration,
-        ParticleSystem particle,
-        Action onStart, Action onEnd)
-    {
-        setter(true);  // 상태 ON
-        if (particle != null)
+        if (airParticle != null)
         {
-            particle.gameObject.SetActive(true);  // 파티클 오브젝트 활성화
-            particle.Play();  // 파티클 재생 시작
-        }
-        onStart?.Invoke();  // null-conditional: 구독자 없을 때 안전하게 호출
-
-        float elapsed = 0f;  // 경과 시간 추적
-        while (elapsed < duration)  // 타이머 루프
-        {
-            elapsed += Time.deltaTime;  // Time.deltaTime: 이전 프레임과의 시간 차이 (초)
-            yield return null;  // 1프레임 대기 (Update와 동기화)
+            airParticle.gameObject.SetActive(true);
+            airParticle.Play();
         }
 
-        setter(false);  // 상태 OFF
-        if (particle != null)
+        SoapUsageLogger.Instance?.LogAir();
+        OnAirUpdated?.Invoke();
+
+        _airCoroutine = StartCoroutine(DispenserTimer(airDuration, () =>
         {
-            particle.Stop();  // 파티클 재생 정지
-        }
-        onEnd?.Invoke();  // 종료 이벤트 발행
+            stationData.isAirRunning = false;
+            _prevAir = false;
+            airParticle?.Stop();
+            OnAirUpdated?.Invoke();
+        }));
     }
 
-    // 타이머 남은 시간 조회용 (UI에서 폴링)
-    // UI 폴링용: 비누 남은 시간 (주의: 현재는 전체 시간만 반환)
-    public float GetSoapRemaining()
+    /// <summary>지정된 시간 후 콜백 실행 (TEST 모드 타이머)</summary>
+    private IEnumerator DispenserTimer(float duration, Action onEnd)
     {
-        return GetRemaining(_soapCoroutine, 3f);
+        yield return new WaitForSeconds(duration);
+        onEnd?.Invoke();
     }
 
-    // UI 폴링용: 물 남은 시간
-    public float GetWaterRemaining()
+    /// <summary>1F~7F 전환 시 모든 동작 강제 중단</summary>
+    private void ForceStopAll()
     {
-        return GetRemaining(_waterCoroutine, 10f);
-    }
-
-    // UI 폴링용: 에어 남은 시간
-    public float GetAirRemaining()
-    {
-        return GetRemaining(_airCoroutine, 10f);
-    }
-
-    // 코루틴 존재 여부로 실행 상태 판단 (한계: 실제 남은 시간 미반영)
-    private float GetRemaining(Coroutine c, float total)
-    {
-        if (c != null)
+        if (stationData.isSoapRunning || stationData.isWaterRunning || stationData.isAirRunning)
         {
-            return total;  // 코루틴 실행 중이면 전체 시간 반환
+            if (_soapCoroutine != null) { StopCoroutine(_soapCoroutine); _soapCoroutine = null; }
+            if (_waterCoroutine != null) { StopCoroutine(_waterCoroutine); _waterCoroutine = null; }
+            if (_airCoroutine != null) { StopCoroutine(_airCoroutine); _airCoroutine = null; }
+
+            stationData.isSoapRunning = false;
+            stationData.isWaterRunning = false;
+            stationData.isAirRunning = false;
+            _prevSoap = false;
+            _prevWater = false;
+            _prevAir = false;
+
+            soapParticle?.Stop();
+            waterParticle?.Stop();
+            airParticle?.Stop();
+
+            OnSoapUpdated?.Invoke();
+            OnWaterUpdated?.Invoke();
+            OnAirUpdated?.Invoke();
         }
-        return 0f;  // 실행 중 아니면 0 반환
     }
 }
