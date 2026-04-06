@@ -213,17 +213,71 @@ public class SLMPClient : IPLCClient
         return buf;
     }
 
-    private int ParseDeviceNumber(string device)
+    /// <summary>
+    /// 디바이스 번호 파싱.
+    /// X, Y 디바이스는 16진수 주소 (예: X0A0 → 0xA0 = 160)
+    /// D, M, T, C 디바이스는 10진수 주소 (예: M13 → 13)
+    /// </summary>
+    public int ParseDeviceNumber(string device)
     {
-        string numStr = "";
-        foreach (char c in device)
+        if (string.IsNullOrEmpty(device)) return 0;
+
+        char prefix = char.ToUpper(device[0]);
+        string numPart = device.Substring(1);   // 접두어 제거
+
+        // X, Y 디바이스: 16진수 파싱
+        if (prefix == 'X' || prefix == 'Y')
         {
-            if (char.IsDigit(c))
+            // "X0A0" → "0A0" → 앞의 0 제거 후 16진수 변환
+            string hexStr = numPart.TrimStart('0');
+            if (string.IsNullOrEmpty(hexStr)) hexStr = "0";
+
+            try
             {
-                numStr += c;
+                return Convert.ToInt32(hexStr, 16);
+            }
+            catch
+            {
+                Debug.LogWarning($"[SLMP] X/Y 디바이스 주소 파싱 실패: {device}");
+                return 0;
             }
         }
-        return numStr.Length > 0 ? int.Parse(numStr) : 0;
+
+        // D, M, T, C, R 디바이스: 10진수 파싱
+        string decStr = "";
+        foreach (char c in numPart)
+            if (char.IsDigit(c)) decStr += c;
+
+        return decStr.Length > 0 ? int.Parse(decStr) : 0;
+    }
+
+    /// <summary>X 디바이스 주소 파싱 검증 — Console에서 확인</summary>
+    public static void VerifyDeviceAddresses()
+    {
+        var client = new SLMPClient();
+        var testCases = new (string device, int expected)[]
+        {
+            ("X0A0", 160),   // 0xA0
+            ("X0A1", 161),   // 0xA1
+            ("X0A2", 162),   // 0xA2
+            ("X0A3", 163),   // 0xA3
+            ("X0A4", 164),   // 0xA4
+            ("X0A5", 165),   // 0xA5
+            ("M0",   0  ),
+            ("M13",  13 ),
+            ("D0",   0  ),
+            ("D4",   4  ),
+        };
+
+        bool allPass = true;
+        foreach (var (device, expected) in testCases)
+        {
+            int result = client.ParseDeviceNumber(device);
+            bool pass  = result == expected;
+            if (!pass) allPass = false;
+            Debug.Log($"[주소검증] {device} → {result} (기대값: {expected}) {(pass ? "✓" : "✗ 오류")}");
+        }
+        Debug.Log($"[주소검증] 전체 결과: {(allPass ? "모두 통과" : "오류 있음")}");
     }
 
     /// <summary>디바이스 접두사 → SLMP Binary 코드 변환</summary>

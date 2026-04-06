@@ -123,6 +123,29 @@ public class HMIUIController : MonoBehaviour
             UpdateGauge(stationController.stationData.soapLevel);
         }
         UpdateStatusLED(stationController.stationData.systemStatus);
+        UpdateModeDisplay();
+    }
+
+    private void UpdateModeDisplay()
+    {
+        if (stationController?.stationData == null) return;
+
+        bool isAuto   = stationController.stationData.isAutoMode;
+        bool isManual = stationController.stationData.isManualMode;
+
+        // 헤더 시스템 상태 텍스트에 모드 반영
+        if (_statusText != null)
+        {
+            string modeStr = isAuto ? "자동" : isManual ? "수동" : "대기";
+            string statusStr = stationController.stationData.systemStatus switch
+            {
+                StationData.SystemStatus.Normal  => "정상",
+                StationData.SystemStatus.Warning => "주의",
+                StationData.SystemStatus.Error   => "오류",
+                _ => "정상"
+            };
+            _statusText.text = $"시스템 상태: {statusStr} [{modeStr}]";
+        }
     }
 
     private void OnNetworkConnectionChanged(bool connected)

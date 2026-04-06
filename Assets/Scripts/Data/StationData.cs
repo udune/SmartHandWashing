@@ -18,6 +18,11 @@ public class StationData : ScriptableObject
     public bool isWaterRunning = false;
     public bool isAirRunning  = false;
 
+    [Header("PLC Mode")]
+    public bool isAutoMode   = false;   // M13: 자동 모드 동작 중
+    public bool isManualMode = false;   // M10: 수동 모드 동작 중
+    public bool isCycleEnd   = false;   // M6: 자동 종료 신호
+
     public enum SystemStatus
     {
         Normal,

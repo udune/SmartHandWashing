@@ -21,19 +21,38 @@ public class MockPLCClient : IPLCClient
     private const int WaterDurationMS = 8000;  // 물: 8초
     private const int AirDurationMS = 8000;    // 에어: 8초
 
+    // D 디바이스 (워드)
     private readonly Dictionary<string, int> _words = new Dictionary<string, int>
     {
-        { "D0",  1000 },  // 비누 잔량 (0~1000 → 0~100%)
-        { "D10", 0    },  // 사용 횟수
+        { "D0", 1000 },   // 비누 잔량 (0~1000 = 0.0~100.0%)
+        { "D1", 400  },   // 비누 질하는 대기시간
+        { "D2", 1000 },   // 물 나오는 시간
+        { "D3", 1000 },   // 건조 시간
+        { "D4", 200  },   // 손 센서 대기 시간
+        { "D10", 0   },   // 누적 사용 횟수
     };
 
+    // M 디바이스 (비트) — 자동 모드
     private readonly Dictionary<string, bool> _bits = new Dictionary<string, bool>
     {
-        { "M0",  false },  // 비누 동작 중
-        { "M1",  false },  // 물 동작 중
-        { "M2",  false },  // 에어 동작 중
-        { "M10", false },  // 비누 부족 알람
-        { "M11", false },
+        // 자동 모드 상태
+        { "M0",  false },   // 비누 실린더 전진
+        { "M4",  false },   // 물 모터
+        { "M5",  false },   // 건조 모터
+        { "M6",  false },   // 자동 종료
+        { "M13", false },   // 자동 모드
+
+        // 수동 모드 상태
+        { "M7",  false },   // 비누 (수동)
+        { "M10", false },   // 수동 모드
+        { "M11", false },   // 물 (수동)
+        { "M12", false },   // 건조 (수동)
+
+        // X 디바이스 (HMI → PLC 쓰기용)
+        { "X0A0", false },  // 손 센서
+        { "X0A3", false },  // 비누 PB
+        { "X0A4", false },  // 물 PB
+        { "X0A5", false },  // 건조 PB
     };
 
     public Task ConnectAsync(string ip, int port, int timeoutMs)
@@ -155,6 +174,7 @@ public class MockPLCClient : IPLCClient
         }
     }
 
+    /// <summary>Mock 테스트용 — 자동 모드 비누 사용 시뮬레이션</summary>
     public void SimulateSoapUse(int decreaseAmount = 50)
     {
         if (_words.ContainsKey("D0"))
@@ -162,11 +182,19 @@ public class MockPLCClient : IPLCClient
             _words["D0"] = Mathf.Max(0, _words["D0"] - decreaseAmount);
             _words["D10"]++;
 
-            if (_words["D0"] <= 200)
-            {
-                _bits["M10"] = true;
-            }
+            // 비누 동작 신호 잠깐 ON (자동 모드 기준 M0)
+            _bits["M13"] = true;   // 자동 모드
+            _bits["M0"]  = true;   // 비누 동작
         }
+    }
+
+    /// <summary>Mock 테스트용 — 신호 리셋</summary>
+    public void SimulateSignalReset()
+    {
+        _bits["M0"]  = false;
+        _bits["M4"]  = false;
+        _bits["M5"]  = false;
+        _bits["M6"]  = false;
     }
 
     public void ResetSoapLevel(int value = 1000)

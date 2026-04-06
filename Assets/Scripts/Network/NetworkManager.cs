@@ -83,6 +83,7 @@ public class NetworkManager : MonoBehaviour
         }
 
         LoadConfig();
+        SLMPClient.VerifyDeviceAddresses();
         // StartCoroutine: 코루틴을 백그라운드에서 실행 시작
         StartCoroutine(ConnectionLoop());
     }
@@ -180,102 +181,111 @@ public class NetworkManager : MonoBehaviour
     // PollCoroutine: PLC에서 데이터 읽기 + StationData bool 직접 갱신
     private IEnumerator PollCoroutine()
     {
-        // ── 비누 잔량 읽기 (D0, 워드) ────────────────────────────────
-        var wordTask = _client.ReadWordsAsync(_config.devices.soapLevel, 1);
-        yield return new WaitUntil(() => wordTask.IsCompleted);
+        // ── 1. 모드 신호 읽기 (M13: 자동, M10: 수동) ─────────────────
+        var modeTask = _client.ReadBitsAsync(_config.devices.autoMode, 1);
+        yield return new WaitUntil(() => modeTask.IsCompleted);
 
-        if (wordTask.IsFaulted)
+        if (modeTask.IsFaulted)
         {
             SetStatus("통신 오류 — 재연결", false);
             _client.Disconnect();
-            // yield break: 코루틴 즉시 종료 → ConnectionLoop에서 재연결 시도
             yield break;
         }
 
-        // wordTask.Result: Task<int[]>의 결과값 접근
-        // D0: 0~1000 → 0.0~100.0% 변환, Mathf.Clamp로 범위 제한
-        float pct = Mathf.Clamp(wordTask.Result[0] / 10f, 0f, 100f);
-        // Mathf.Abs: 차이가 0.1% 이상일 때만 갱신 (불필요한 이벤트 방지)
-        if (Mathf.Abs(stationData.soapLevel - pct) > 0.1f)
-        {
-            stationData.soapLevel = pct;
-            UpdateSystemStatus(pct);
+        bool isAuto = modeTask.Result.Length > 0 && modeTask.Result[0];
+        stationData.isAutoMode = isAuto;
 
-            // FloorManager 8F 실시간 데이터 동기화
+        // ── 2. 동작 상태 읽기 (모드에 따라 다른 디바이스) ────────────
+        bool soapOn = false, waterOn = false, airOn = false;
+
+        if (isAuto)
+        {
+            // 자동 모드: M0(비누), M4(물), M5(건조)
+            // M0~M5 범위를 한 번에 읽기 (6비트)
+            var autoTask = _client.ReadBitsAsync(_config.devices.soapRunningAuto, 6);
+            yield return new WaitUntil(() => autoTask.IsCompleted);
+
+            if (!autoTask.IsFaulted && autoTask.Result.Length >= 6)
+            {
+                bool[] bits = autoTask.Result;
+                // M0=bits[0], M1=bits[1], M2=bits[2], M3=bits[3], M4=bits[4], M5=bits[5]
+                soapOn  = bits[0];   // M0: 비누 실린더 전진
+                waterOn = bits[4];   // M4: 물 모터
+                airOn   = bits[5];   // M5: 건조 모터
+            }
+
+            // 자동 종료 신호 (M6)
+            var cycleTask = _client.ReadBitsAsync(_config.devices.cycleEnd, 1);
+            yield return new WaitUntil(() => cycleTask.IsCompleted);
+            if (!cycleTask.IsFaulted)
+                stationData.isCycleEnd = cycleTask.Result.Length > 0 && cycleTask.Result[0];
+        }
+        else
+        {
+            // 수동 모드: M7(비누), M11(물), M12(건조)
+            var manualSoapTask = _client.ReadBitsAsync(_config.devices.soapRunningManual, 1);
+            yield return new WaitUntil(() => manualSoapTask.IsCompleted);
+            if (!manualSoapTask.IsFaulted)
+                soapOn = manualSoapTask.Result.Length > 0 && manualSoapTask.Result[0];
+
+            var manualWaterTask = _client.ReadBitsAsync(_config.devices.waterRunningManual, 1);
+            yield return new WaitUntil(() => manualWaterTask.IsCompleted);
+            if (!manualWaterTask.IsFaulted)
+                waterOn = manualWaterTask.Result.Length > 0 && manualWaterTask.Result[0];
+
+            var manualAirTask = _client.ReadBitsAsync(_config.devices.airRunningManual, 1);
+            yield return new WaitUntil(() => manualAirTask.IsCompleted);
+            if (!manualAirTask.IsFaulted)
+                airOn = manualAirTask.Result.Length > 0 && manualAirTask.Result[0];
+        }
+
+        // ── 3. StationData 갱신 → StationController.Update()가 감지 ──
+        stationData.isSoapRunning  = soapOn;
+        stationData.isWaterRunning = waterOn;
+        stationData.isAirRunning   = airOn;
+
+        // ── 4. 비누 사용 감지 (OFF → ON 엣지) ────────────────────────
+        if (soapOn && !_prevSoapSignal)
+        {
+            float before = stationData.soapLevel;
+            stationData.UseSoap();
+            SoapUsageLogger.Instance?.LogSoap(before, stationData.soapLevel);
             FloorManager.Instance?.SyncRealFloorData();
         }
+        _prevSoapSignal = soapOn;
 
-        // ── M 디바이스 읽기 (M0~M2: 비누/물/에어 ON/OFF 신호) ────────
-        var bitTask = _client.ReadBitsAsync(_config.devices.soapBtn, 3);
-        yield return new WaitUntil(() => bitTask.IsCompleted);
+        // ── 5. 시스템 상태 갱신 ──────────────────────────────────────
+        UpdateSystemStatus(stationData.soapLevel);
 
-        if (!bitTask.IsFaulted)
-        {
-            bool[] bits = bitTask.Result;
-
-            // TEST 모드일 때는 StationController의 코루틴이 
-            // 직접 상태를 제어하므로 PLC에서 읽어온 값(보통 false)으로 덮어쓰지 않습니다.
-            // 이를 통해 인터록(IsAnyRunning)과 타이머 UI가 정상적으로 유지됩니다.
-            if (!AppModeManager.IsTestMode)
-            {
-                // StationData bool 값 갱신 → StationController.Update()가 감지
-                stationData.isSoapRunning  = bits.Length > 0 && bits[0];
-                stationData.isWaterRunning = bits.Length > 1 && bits[1];
-                stationData.isAirRunning   = bits.Length > 2 && bits[2];
-
-                // 비누 사용 감지: 신호 ON 시 로거 기록 (상승 에지)
-                if (stationData.isSoapRunning && !_prevSoapSignal)
-                {
-                    // 사용 전 잔량 추정: 현재값 + 감소량
-                    SoapUsageLogger.Instance?.LogSoap(pct + _config.soapDecreasePerUse, pct);
-                }
-
-                _prevSoapSignal = stationData.isSoapRunning;
-            }
-        }
-
-        // pollIntervalMs(밀리초) → 초 변환하여 대기
         yield return new WaitForSeconds(_config.pollIntervalMs / 1000f);
     }
 
     // ── HMI → PLC 쓰기 (버튼 클릭 시 외부에서 호출) ─────────────────
 
-    // WriteSoapButton: HMI에서 비누 버튼 클릭 시 PLC M0 비트에 쓰기
+    /// <summary>
+    /// HMI 버튼 → PLC X 디바이스 쓰기
+    /// 수동 모드 PB 신호: X0A3(비누), X0A4(물), X0A5(건조)
+    /// </summary>
     public void WriteSoapButton(bool value)
-    {
-        StartCoroutine(WriteBitCoroutine(_config.devices.soapBtn, value));
-    }
+        => StartCoroutine(WriteBitCoroutine(_config.devices.soapBtnManual, value));
 
-    // WriteWaterButton: HMI에서 물 버튼 클릭 시 PLC M1 비트에 쓰기
     public void WriteWaterButton(bool value)
-    {
-        StartCoroutine(WriteBitCoroutine(_config.devices.waterBtn, value));
-    }
+        => StartCoroutine(WriteBitCoroutine(_config.devices.waterBtnManual, value));
 
-    // WriteAirButton: HMI에서 에어 버튼 클릭 시 PLC M2 비트에 쓰기
     public void WriteAirButton(bool value)
-    {
-        StartCoroutine(WriteBitCoroutine(_config.devices.airBtn, value));
-    }
+        => StartCoroutine(WriteBitCoroutine(_config.devices.airBtnManual, value));
 
-    // WriteBitCoroutine: 비동기 비트 쓰기를 코루틴으로 래핑
     private IEnumerator WriteBitCoroutine(string device, bool value)
     {
-        // 연결 안 되어 있으면 즉시 종료
-        if (!IsConnected)
-        {
-            yield break;
-        }
+        if (!IsConnected) yield break;
 
-        // new[] { value }: 단일 요소 배열 인라인 생성
         var task = _client.WriteBitsAsync(device, new[] { value });
         yield return new WaitUntil(() => task.IsCompleted);
 
         if (task.IsFaulted)
-        {
-            // $"" (문자열 보간): 변수를 문자열에 삽입
             Debug.LogWarning($"[Network] 비트 쓰기 실패: {device} = {value}");
-        }
+        else
+            Debug.Log($"[Network] 쓰기 완료: {device} = {value}");
     }
 
     // ── 헬퍼 ────────────────────────────────────────────────────────
