@@ -127,8 +127,9 @@ public class StationController : MonoBehaviour
             return;
         }
 
-        // PLC 모드: PLC에 신호 쓰기
-        NetworkManager.Instance?.WriteSoapButton(true);
+        // PLC 모드: 비누 모드 선택 후 손 센서 트리거
+        NetworkManager.Instance?.WriteSoapSelectButton(true);
+        StartCoroutine(TriggerHandSensorAfterDelay(0.1f));
     }
 
     public void RequestWater()
@@ -149,7 +150,9 @@ public class StationController : MonoBehaviour
             return;
         }
 
-        NetworkManager.Instance?.WriteWaterButton(true);
+        // PLC 모드: 물 모드 선택 후 손 센서 트리거
+        NetworkManager.Instance?.WriteWaterSelectButton(true);
+        StartCoroutine(TriggerHandSensorAfterDelay(0.1f));
     }
 
     public void RequestAir()
@@ -170,7 +173,18 @@ public class StationController : MonoBehaviour
             return;
         }
 
-        NetworkManager.Instance?.WriteAirButton(true);
+        // PLC 모드: 건조 모드 선택 후 손 센서 트리거
+        NetworkManager.Instance?.WriteDrySelectButton(true);
+        StartCoroutine(TriggerHandSensorAfterDelay(0.1f));
+    }
+
+    /// <summary>모드 선택 후 손 센서 트리거 (새 래더 구조)</summary>
+    private IEnumerator TriggerHandSensorAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        NetworkManager.Instance?.WriteHandSensor(true);
+        yield return new WaitForSeconds(0.2f);
+        NetworkManager.Instance?.WriteHandSensor(false);
     }
 
     private void ActivateSoap()

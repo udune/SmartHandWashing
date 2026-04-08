@@ -1,45 +1,31 @@
-// System: Action<T> 델리게이트 타입 사용
 using System;
-// System.Collections: IEnumerator 코루틴 반환 타입
 using System.Collections;
 using Network;
 using UnityEngine;
 
 /// <summary>
 /// PLC 연결 관리 + 100ms 폴링 루프.
-/// StationData를 PLC 데이터로 갱신한다.
+/// 새 래더 구조: 4개 모드 선택 + 8단계 시퀀스
 /// </summary>
-// MonoBehaviour: Unity 생명주기(Start, OnDestroy) 및 코루틴 사용
 public class NetworkManager : MonoBehaviour
 {
     // ── 싱글톤 패턴 ──
-    // Instance: 전역 접근용 정적 프로퍼티 (StationController에서 사용)
     public static NetworkManager Instance { get; private set; }
 
-    // [Header]: Inspector에서 섹션 구분용 라벨 표시
     [Header("References")]
-    // public 필드: Inspector에서 드래그&드롭으로 연결 가능
     public StationData stationData;
-    public StationController stationController;  // PLC → HMI 동작 연동
+    public StationController stationController;
 
     // ── 설정 (PLCConfig.json에서 로드) ───────────────────────────────
-    // _config: Resources/PLCConfig.json에서 역직렬화된 설정 객체
     private PLCConfig _config;
-    // _client: IPLCClient 인터페이스 (Mock/SLMP 교체 가능)
     private IPLCClient _client;
 
     // ── 상태 ─────────────────────────────────────────────────────────
-    private bool _hasConnectedOnce = false;  // 최초 연결 여부 추적
-    // _prevBits: 상승 에지 감지용 (이전 프레임과 비교하여 OFF→ON 검출)
-    private bool[] _prevBits = new bool[3];  // 이전 비트 상태 (에지 검출용)
-    // _prevSoapSignal: 비누 사용 로깅용 이전 신호 상태
-    private bool _prevSoapSignal = false;
+    private bool _hasConnectedOnce = false;
+    private bool _prevSoapOutput = false;  // 비누 출력 에지 감지용
 
-    // IsMockMode: Mock 모드 여부 (StationController에서 참조)
-    // PLCConfig.useMock 값 기반으로 판단
     public bool IsMockMode => _config?.useMock ?? true;
 
-    // IsConnected: null 체크 후 클라이언트 연결 상태 반환
     public bool IsConnected
     {
         get
@@ -51,19 +37,16 @@ public class NetworkManager : MonoBehaviour
             return false;
         }
     }
-    // auto-property with initializer: private set으로 외부 수정 차단
+
     public string StatusMessage { get; private set; } = "초기화 중...";
 
-    // event: 상태 변화 시 구독자에게 알림 (Observer 패턴)
     public event Action<bool> OnConnectionChanged;
     public event Action<string> OnStatusChanged;
 
     // ── 생명주기 ─────────────────────────────────────────────────────
 
-    // Awake(): Start()보다 먼저 호출, 싱글톤 등록
     void Awake()
     {
-        // 싱글톤 보장: 기존 인스턴스 있으면 자신 파괴
         if (Instance != null)
         {
             Destroy(gameObject);
@@ -72,11 +55,8 @@ public class NetworkManager : MonoBehaviour
         Instance = this;
     }
 
-    // Start(): 첫 프레임 전에 호출, 초기화 로직 수행
     void Start()
     {
-        // StationController 자동 연결 (같은 GameObject에 있는 경우)
-        // GetComponent<T>(): 동일 GameObject에서 컴포넌트 검색
         if (stationController == null)
         {
             stationController = GetComponent<StationController>();
@@ -84,38 +64,30 @@ public class NetworkManager : MonoBehaviour
 
         LoadConfig();
         SLMPClient.VerifyDeviceAddresses();
-        // StartCoroutine: 코루틴을 백그라운드에서 실행 시작
         StartCoroutine(ConnectionLoop());
     }
 
-    // OnDestroy(): GameObject 파괴 시 호출, 리소스 정리
     void OnDestroy()
     {
-        // ?. (null 조건부 연산자): _client가 null이면 Disconnect 호출 스킵
         _client?.Disconnect();
     }
 
     // ── 설정 로드 ────────────────────────────────────────────────────
 
-    // LoadConfig: JSON 설정 파일 로드 및 PLC 클라이언트 인스턴스 생성
     private void LoadConfig()
     {
-        // Resources.Load<T>(): Resources 폴더에서 에셋 로드 (확장자 생략)
         var json = Resources.Load<TextAsset>("PLCConfig");
         if (json != null)
         {
-            // JsonUtility.FromJson<T>(): JSON 문자열 → C# 객체 역직렬화
             _config = JsonUtility.FromJson<PLCConfig>(json.text);
             Debug.Log($"[Network] 설정 로드: useMock={_config.useMock}, ip={_config.ip}");
         }
         else
         {
-            // 설정 파일 없으면 기본값 사용 (PLCConfig 생성자의 기본값)
             _config = new PLCConfig();
             Debug.LogWarning("[Network] PLCConfig.json 없음 — 기본값(Mock) 사용");
         }
 
-        // 설정에 따라 Mock 또는 실제 SLMP 클라이언트 생성 (전략 패턴)
         if (_config.useMock)
         {
             _client = new MockPLCClient();
@@ -128,19 +100,15 @@ public class NetworkManager : MonoBehaviour
 
     // ── 연결 루프 ────────────────────────────────────────────────────
 
-    // ConnectionLoop: 연결 상태 감시 + 자동 재연결 무한 루프
     private IEnumerator ConnectionLoop()
     {
-        // 최초 연결 시도 (Mock 모드에서도 ConnectAsync 호출 보장)
         if (!_hasConnectedOnce)
         {
             SetStatus("연결 시도 중...", false);
-            // yield return 코루틴: 해당 코루틴 완료까지 대기
             yield return ConnectCoroutine();
             _hasConnectedOnce = true;
         }
 
-        // while (true): Unity 프레임과 독립적인 영구 루프
         while (true)
         {
             if (!IsConnected)
@@ -150,24 +118,19 @@ public class NetworkManager : MonoBehaviour
             }
             else
             {
-                // 연결 중이면 폴링 실행
                 yield return PollCoroutine();
             }
         }
     }
 
-    // ConnectCoroutine: 비동기 Task를 코루틴으로 래핑하여 연결 시도
     private IEnumerator ConnectCoroutine()
     {
         var task = _client.ConnectAsync(_config.ip, _config.port, _config.timeoutMs);
-        // WaitUntil: 조건이 true가 될 때까지 매 프레임 체크
         yield return new WaitUntil(() => task.IsCompleted);
 
-        // task.IsFaulted: 비동기 작업 중 예외 발생 여부
         if (task.IsFaulted)
         {
             SetStatus($"연결 실패 — 5초 후 재시도", false);
-            // WaitForSeconds: 지정 시간(초) 대기 후 다음 줄 실행
             yield return new WaitForSeconds(5f);
         }
         else
@@ -178,11 +141,16 @@ public class NetworkManager : MonoBehaviour
 
     // ── 폴링 루프 (100ms) ────────────────────────────────────────────
 
-    // PollCoroutine: PLC에서 데이터 읽기 + StationData bool 직접 갱신
+    /// <summary>
+    /// 새 래더 구조 기반 폴링:
+    /// - 4개 모드 상태: M10(비누), M20(물), M30(수동), M40(건조)
+    /// - 8단계 시퀀스: M0~M7
+    /// - 4개 출력: Y0C0(비누), Y0C1(물대기), Y0C2(물), Y0C3(건조)
+    /// </summary>
     private IEnumerator PollCoroutine()
     {
-        // ── 1. 모드 신호 읽기 (M13: 자동, M10: 수동) ─────────────────
-        var modeTask = _client.ReadBitsAsync(_config.devices.autoMode, 1);
+        // ── 1. 모드 상태 읽기 (M10, M20, M30, M40) ──────────────────
+        var modeTask = _client.ReadBitsAsync(_config.devices.soapMode, 31);
         yield return new WaitUntil(() => modeTask.IsCompleted);
 
         if (modeTask.IsFaulted)
@@ -192,88 +160,91 @@ public class NetworkManager : MonoBehaviour
             yield break;
         }
 
-        bool isAuto = modeTask.Result.Length > 0 && modeTask.Result[0];
-        stationData.isAutoMode = isAuto;
+        bool[] modeBits = modeTask.Result;
+        if (modeBits.Length >= 31)
+        {
+            // M10=bits[0], M20=bits[10], M30=bits[20], M40=bits[30]
+            stationData.isSoapMode = modeBits[0];    // M10
+            stationData.isWaterMode = modeBits[10];  // M20
+            stationData.isManualMode = modeBits[20]; // M30
+            stationData.isDryMode = modeBits[30];    // M40
+        }
 
-        // ── 2. 동작 상태 읽기 (모드에 따라 다른 디바이스) ────────────
+        // ── 2. 동작 상태 읽기 (M0~M7: 8단계 시퀀스) ─────────────────
+        var seqTask = _client.ReadBitsAsync(_config.devices.soapRunning, 8);
+        yield return new WaitUntil(() => seqTask.IsCompleted);
+
         bool soapOn = false, waterOn = false, airOn = false;
+        int currentStep = 0;
 
-        if (isAuto)
+        if (!seqTask.IsFaulted && seqTask.Result.Length >= 8)
         {
-            // 자동 모드: M0(비누), M4(물), M5(건조)
-            // M0~M5 범위를 한 번에 읽기 (6비트)
-            var autoTask = _client.ReadBitsAsync(_config.devices.soapRunningAuto, 6);
-            yield return new WaitUntil(() => autoTask.IsCompleted);
+            bool[] seq = seqTask.Result;
+            // M0=비누, M1=물대기, M2=물, M3=건조, M4=헹굼대기, M5=헹굼, M6=비누2, M7=건조2
 
-            if (!autoTask.IsFaulted && autoTask.Result.Length >= 6)
-            {
-                bool[] bits = autoTask.Result;
-                // M0=bits[0], M1=bits[1], M2=bits[2], M3=bits[3], M4=bits[4], M5=bits[5]
-                soapOn  = bits[0];   // M0: 비누 실린더 전진
-                waterOn = bits[4];   // M4: 물 모터
-                airOn   = bits[5];   // M5: 건조 모터
-            }
+            // 비누 동작: M0(비누) OR M6(비누2)
+            soapOn = seq[0] || seq[6];
 
-            // 자동 종료 신호 (M6)
-            var cycleTask = _client.ReadBitsAsync(_config.devices.cycleEnd, 1);
-            yield return new WaitUntil(() => cycleTask.IsCompleted);
-            if (!cycleTask.IsFaulted)
-                stationData.isCycleEnd = cycleTask.Result.Length > 0 && cycleTask.Result[0];
-        }
-        else
-        {
-            // 수동 모드: M7(비누), M11(물), M12(건조)
-            var manualSoapTask = _client.ReadBitsAsync(_config.devices.soapRunningManual, 1);
-            yield return new WaitUntil(() => manualSoapTask.IsCompleted);
-            if (!manualSoapTask.IsFaulted)
-                soapOn = manualSoapTask.Result.Length > 0 && manualSoapTask.Result[0];
+            // 물 동작: M1(물대기) OR M2(물) OR M4(헹굼대기) OR M5(헹굼)
+            waterOn = seq[1] || seq[2] || seq[4] || seq[5];
 
-            var manualWaterTask = _client.ReadBitsAsync(_config.devices.waterRunningManual, 1);
-            yield return new WaitUntil(() => manualWaterTask.IsCompleted);
-            if (!manualWaterTask.IsFaulted)
-                waterOn = manualWaterTask.Result.Length > 0 && manualWaterTask.Result[0];
+            // 건조 동작: M3(건조) OR M7(건조2)
+            airOn = seq[3] || seq[7];
 
-            var manualAirTask = _client.ReadBitsAsync(_config.devices.airRunningManual, 1);
-            yield return new WaitUntil(() => manualAirTask.IsCompleted);
-            if (!manualAirTask.IsFaulted)
-                airOn = manualAirTask.Result.Length > 0 && manualAirTask.Result[0];
+            // 현재 단계 판별 (UI 표시용)
+            if (seq[0]) currentStep = 1;      // 비누
+            else if (seq[1]) currentStep = 2; // 물 대기
+            else if (seq[2]) currentStep = 3; // 물
+            else if (seq[3]) currentStep = 4; // 건조
+            else if (seq[4]) currentStep = 5; // 헹굼 대기
+            else if (seq[5]) currentStep = 6; // 헹굼
+            else if (seq[6]) currentStep = 7; // 비누2
+            else if (seq[7]) currentStep = 8; // 건조2
         }
 
-        // ── 3. StationData 갱신 → StationController.Update()가 감지 ──
-        stationData.isSoapRunning  = soapOn;
+        // ── 3. StationData 갱신 ────────────────────────────────────
+        stationData.isSoapRunning = soapOn;
         stationData.isWaterRunning = waterOn;
-        stationData.isAirRunning   = airOn;
+        stationData.isAirRunning = airOn;
+        stationData.currentStep = currentStep;
 
-        // ── 4. 비누 사용 감지 (OFF → ON 엣지) ────────────────────────
-        if (soapOn && !_prevSoapSignal)
+        // ── 4. 비누 사용 감지 (비누 출력 OFF → ON 엣지) ─────────────
+        if (soapOn && !_prevSoapOutput)
         {
             float before = stationData.soapLevel;
             stationData.UseSoap();
             SoapUsageLogger.Instance?.LogSoap(before, stationData.soapLevel);
             FloorManager.Instance?.SyncRealFloorData();
         }
-        _prevSoapSignal = soapOn;
+        _prevSoapOutput = soapOn;
 
-        // ── 5. 시스템 상태 갱신 ──────────────────────────────────────
+        // ── 5. 시스템 상태 갱신 ────────────────────────────────────
         UpdateSystemStatus(stationData.soapLevel);
 
         yield return new WaitForSeconds(_config.pollIntervalMs / 1000f);
     }
 
-    // ── HMI → PLC 쓰기 (버튼 클릭 시 외부에서 호출) ─────────────────
+    // ── HMI → PLC 쓰기 (모드 선택 버튼) ──────────────────────────────
 
-    /// <summary>
-    /// HMI 버튼 → PLC X 디바이스 쓰기
-    /// 수동 모드 PB 신호: X0A3(비누), X0A4(물), X0A5(건조)
-    /// </summary>
-    public void WriteSoapButton(bool value)
-        => StartCoroutine(WriteBitCoroutine(_config.devices.soapBtnManual, value));
+    /// <summary>비누 모드 선택 버튼 (X0A7)</summary>
+    public void WriteSoapSelectButton(bool value)
+        => StartCoroutine(WriteBitCoroutine(_config.devices.soapSelectBtn, value));
 
-    public void WriteWaterButton(bool value)
-        => StartCoroutine(WriteBitCoroutine(_config.devices.waterBtnManual, value));
+    /// <summary>물 모드 선택 버튼 (X0A8)</summary>
+    public void WriteWaterSelectButton(bool value)
+        => StartCoroutine(WriteBitCoroutine(_config.devices.waterSelectBtn, value));
 
-    public void WriteAirButton(bool value)
-        => StartCoroutine(WriteBitCoroutine(_config.devices.airBtnManual, value));
+    /// <summary>수동 모드 선택 버튼 (X0A9)</summary>
+    public void WriteManualSelectButton(bool value)
+        => StartCoroutine(WriteBitCoroutine(_config.devices.manualSelectBtn, value));
+
+    /// <summary>건조 모드 선택 버튼 (X0A6)</summary>
+    public void WriteDrySelectButton(bool value)
+        => StartCoroutine(WriteBitCoroutine(_config.devices.drySelectBtn, value));
+
+    /// <summary>손 센서 트리거 (X0A0) - Mock 테스트용</summary>
+    public void WriteHandSensor(bool value)
+        => StartCoroutine(WriteBitCoroutine(_config.devices.handSensor, value));
 
     private IEnumerator WriteBitCoroutine(string device, bool value)
     {
@@ -290,8 +261,6 @@ public class NetworkManager : MonoBehaviour
 
     // ── 헬퍼 ────────────────────────────────────────────────────────
 
-    // UpdateSystemStatus: 비누 잔량에 따른 시스템 상태 자동 판단
-    // 0%: Error, 1-20%: Warning, 21-100%: Normal
     private void UpdateSystemStatus(float soapPct)
     {
         if (soapPct <= 0f)
@@ -308,20 +277,17 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    // SetStatus: 상태 메시지 갱신 + 이벤트 발행 (UI 등 구독자에게 알림)
     private void SetStatus(string msg, bool connected)
     {
         StatusMessage = msg;
-        // ?.Invoke(): 구독자가 없으면 (null이면) 호출 스킵
         OnStatusChanged?.Invoke(msg);
         OnConnectionChanged?.Invoke(connected);
         Debug.Log($"[Network] {msg}");
     }
 
-    // ── Mock 전용: 비누 사용 시뮬레이션 ─────────────────────────────
+    // ── Mock 전용: 시뮬레이션 ─────────────────────────────────────
 
-    /// <summary>Inspector 또는 테스트 버튼에서 호출 — Mock 모드 전용</summary>
-    // [ContextMenu]: Inspector 컴포넌트 우클릭 시 메뉴에 추가
+    /// <summary>Mock: 손 센서 감지 → 8단계 시퀀스 시뮬레이션</summary>
     [ContextMenu("Mock: 센서 순차 동작 시뮬레이션")]
     public void MockSimulateSensorSequence()
     {
@@ -338,15 +304,11 @@ public class NetworkManager : MonoBehaviour
     [ContextMenu("Mock: 비누 사용 시뮬레이션")]
     public void MockSimulateSoapUse()
     {
-        // is 패턴 매칭: 타입 확인 + 캐스팅 + 변수 선언 동시 수행
         if (_client is MockPLCClient mock)
         {
-            // 비트(M0)를 ON으로 설정 → 폴링에서 상승 에지 검출 → ActivateSoap() 호출
-            mock.SetButtonBit(0, true);
-            // 비누 잔량도 감소 (실제 PLC 동작 시뮬레이션)
+            mock.SetBit("M0", true);  // 비누 동작 ON
             mock.SimulateSoapUse(50);
-            // 잠시 후 비트 OFF (연속 시뮬레이션 가능하도록)
-            StartCoroutine(ResetButtonBitAfterDelay(mock, 0, 0.5f));
+            StartCoroutine(ResetBitAfterDelay(mock, "M0", 0.5f));
         }
         else
         {
@@ -354,18 +316,15 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    // ResetButtonBitAfterDelay: 지정 시간 후 버튼 비트 OFF (연속 테스트 가능)
-    private IEnumerator ResetButtonBitAfterDelay(MockPLCClient mock, int index, float delay)
+    private IEnumerator ResetBitAfterDelay(MockPLCClient mock, string device, float delay)
     {
         yield return new WaitForSeconds(delay);
-        mock.SetButtonBit(index, false);
+        mock.SetBit(device, false);
     }
 
-    /// <summary>비누 잔량 리셋 — Mock 모드 전용</summary>
     [ContextMenu("Mock: 비누 잔량 리셋 (100%)")]
     public void MockResetSoapLevel()
     {
-        // is 패턴 매칭: MockPLCClient 타입일 때만 실행
         if (_client is MockPLCClient mock)
         {
             mock.ResetSoapLevel(1000);

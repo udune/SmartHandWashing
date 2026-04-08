@@ -130,21 +130,21 @@ public class HMIUIController : MonoBehaviour
     {
         if (stationController?.stationData == null) return;
 
-        bool isAuto   = stationController.stationData.isAutoMode;
-        bool isManual = stationController.stationData.isManualMode;
+        var data = stationController.stationData;
 
-        // 헤더 시스템 상태 텍스트에 모드 반영
+        // 헤더 시스템 상태 텍스트에 모드 + 현재 단계 반영
         if (_statusText != null)
         {
-            string modeStr = isAuto ? "자동" : isManual ? "수동" : "대기";
-            string statusStr = stationController.stationData.systemStatus switch
+            string modeStr = data.GetActiveModeName();
+            string stepStr = data.currentStep > 0 ? $" - {data.GetCurrentStepName()}" : "";
+            string statusStr = data.systemStatus switch
             {
                 StationData.SystemStatus.Normal  => "정상",
                 StationData.SystemStatus.Warning => "주의",
                 StationData.SystemStatus.Error   => "오류",
                 _ => "정상"
             };
-            _statusText.text = $"시스템 상태: {statusStr} [{modeStr}]";
+            _statusText.text = $"시스템 상태: {statusStr} [{modeStr}{stepStr}]";
         }
     }
 
