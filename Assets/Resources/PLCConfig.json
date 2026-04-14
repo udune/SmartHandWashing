@@ -1,7 +1,7 @@
 {
-  "useMock": true,
-  "ip": "192.168.3.39",
-  "port": 5007,
+  "useMock": false,
+  "ip": "192.168.0.182",
+  "port": 4999,
   "pollIntervalMs": 100,
   "timeoutMs": 2000,
   "devices": {
