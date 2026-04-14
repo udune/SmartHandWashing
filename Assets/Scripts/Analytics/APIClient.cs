@@ -57,12 +57,10 @@ public class APIClient : MonoBehaviour
         string url  = $"{_config.apiBaseUrl}/events";
         string body = BuildBatchPayload(pending);
 
-        using var req = new UnityWebRequest(url, "POST")
-        {
-            uploadHandler   = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body)),
-            downloadHandler = new DownloadHandlerBuffer(),
-            timeout         = _config.apiTimeoutMs / MsPerSecond
-        };
+        using var req = new UnityWebRequest(url, "POST");
+        req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body));
+        req.downloadHandler = new DownloadHandlerBuffer();
+        req.timeout = _config.apiTimeoutMs / MsPerSecond;
 
         req.SetRequestHeader("Content-Type", "application/json");
 
