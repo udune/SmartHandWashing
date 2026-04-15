@@ -33,7 +33,10 @@ public class AnalyticsPanel : MonoBehaviour
 
     void Start()
     {
-        if (uiDocument == null) return;
+        if (uiDocument == null)
+        {
+            return;
+        }
 
         var root = uiDocument.rootVisualElement;
 
@@ -41,7 +44,10 @@ public class AnalyticsPanel : MonoBehaviour
         _peakTimeLabel = root.Q<Label>("peak-time-label");
         _avgCompareLabel = root.Q<Label>("avg-compare-label");
 
-        if (_panel == null) return;
+        if (_panel == null)
+        {
+            return;
+        }
 
         ApplyPanelStyles(_panel);
         _panel.BringToFront();
@@ -93,19 +99,27 @@ public class AnalyticsPanel : MonoBehaviour
     {
         if (_currentFloorData != null && _currentFloorData.isRealPLC && logger != null)
         {
-            UpdateChart(logger.HourlyCount);
+            _barChart?.SetData(logger.HourlyCount, logger.PeakHour);
+            UpdateChartLabels(logger.HourlyCount, logger.PeakHour);
             RefreshPrediction();
         }
     }
 
     private void UpdateChart(int[] hourlyData)
     {
-        if (hourlyData == null || _barChart == null) return;
+        if (hourlyData == null || _barChart == null)
+        {
+            return;
+        }
 
-        int peakHour = GetPeakHour(hourlyData);
-        int todayTotal = hourlyData.Sum();
-
+        int peakHour = ComputePeakHour(hourlyData);
         _barChart.SetData(hourlyData, peakHour);
+        UpdateChartLabels(hourlyData, peakHour);
+    }
+
+    private void UpdateChartLabels(int[] hourlyData, int peakHour)
+    {
+        int todayTotal = hourlyData.Sum();
 
         if (_peakTimeLabel != null)
         {
@@ -122,9 +136,12 @@ public class AnalyticsPanel : MonoBehaviour
         }
     }
 
-    private int GetPeakHour(int[] hourly)
+    private static int ComputePeakHour(int[] hourly)
     {
-        if (hourly == null || hourly.Length == 0) return 0;
+        if (hourly == null || hourly.Length == 0)
+        {
+            return 0;
+        }
         int peak = 0;
         int maxVal = 0;
         for (int h = 0; h < hourly.Length; h++)
@@ -140,7 +157,10 @@ public class AnalyticsPanel : MonoBehaviour
 
     private void RefreshPrediction()
     {
-        if (logger == null || stationController == null) return;
+        if (logger == null || stationController == null)
+        {
+            return;
+        }
 
         var dailyUsage = logger.GetDailyUsage(logger.Config.prediction.lookbackDays);
 

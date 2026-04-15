@@ -18,10 +18,16 @@ public class FloorManager : MonoBehaviour
     private FloorData[] _floors;
     private int _currentIndex = 7;
 
-    public FloorData CurrentFloor => _floors?[_currentIndex];
+    public FloorData CurrentFloor
+    {
+        get { return _floors?[_currentIndex]; }
+    }
 
     /// <summary>현재 선택된 층이 실제 PLC 연동 층인지 여부</summary>
-    public bool IsRealPLCFloor => CurrentFloor?.isRealPLC ?? false;
+    public bool IsRealPLCFloor
+    {
+        get { return CurrentFloor?.isRealPLC ?? false; }
+    }
 
     public event Action<FloorData> OnFloorChanged;
 
@@ -110,5 +116,8 @@ public class FloorManager : MonoBehaviour
         }
     }
 
-    public FloorData[] AllFloors => _floors;
+    public FloorData[] AllFloors
+    {
+        get { return _floors; }
+    }
 }

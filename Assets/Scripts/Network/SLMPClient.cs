@@ -13,7 +13,10 @@ public class SLMPClient : IPLCClient
     private TcpClient _tcp;
     private NetworkStream _stream;
 
-    public bool IsConnected => _tcp != null && _tcp.Connected;
+    public bool IsConnected
+    {
+        get { return _tcp != null && _tcp.Connected; }
+    }
 
     public async Task ConnectAsync(string ip, int port, int timeoutMs)
     {
@@ -22,7 +25,9 @@ public class SLMPClient : IPLCClient
             _tcp = new TcpClient();
             var connectTask = _tcp.ConnectAsync(ip, port);
             if (await Task.WhenAny(connectTask, Task.Delay(timeoutMs)) != connectTask)
+            {
                 throw new TimeoutException($"SLMP 연결 타임아웃: {ip}:{port}");
+            }
 
             _stream = _tcp.GetStream();
             Debug.Log($"[SLMP] 연결 성공: {ip}:{port}");
@@ -196,7 +201,10 @@ public class SLMPClient : IPLCClient
 
     private async Task<byte[]> SendReceiveAsync(byte[] request)
     {
-        if (!IsConnected) throw new InvalidOperationException("SLMP 미연결 상태");
+        if (!IsConnected)
+        {
+            throw new InvalidOperationException("SLMP 미연결 상태");
+        }
 
         await _stream.WriteAsync(request, 0, request.Length);
 
@@ -204,11 +212,15 @@ public class SLMPClient : IPLCClient
         int len = await _stream.ReadAsync(buf, 0, buf.Length);
 
         if (len < 11)
+        {
             throw new Exception($"SLMP 응답 너무 짧음: {len} bytes");
+        }
 
         int endCode = buf[9] | (buf[10] << 8);
         if (endCode != 0x0000)
+        {
             throw new Exception($"SLMP 오류 코드: 0x{endCode:X4}");
+        }
 
         return buf;
     }
@@ -220,7 +232,10 @@ public class SLMPClient : IPLCClient
     /// </summary>
     public int ParseDeviceNumber(string device)
     {
-        if (string.IsNullOrEmpty(device)) return 0;
+        if (string.IsNullOrEmpty(device))
+        {
+            return 0;
+        }
 
         char prefix = char.ToUpper(device[0]);
         string numPart = device.Substring(1);   // 접두어 제거
@@ -230,7 +245,10 @@ public class SLMPClient : IPLCClient
         {
             // "X0A0" → "0A0" → 앞의 0 제거 후 16진수 변환
             string hexStr = numPart.TrimStart('0');
-            if (string.IsNullOrEmpty(hexStr)) hexStr = "0";
+            if (string.IsNullOrEmpty(hexStr))
+            {
+                hexStr = "0";
+            }
 
             try
             {
@@ -243,12 +261,14 @@ public class SLMPClient : IPLCClient
             }
         }
 
-        // D, M, T, C, R 디바이스: 10진수 파싱
-        string decStr = "";
-        foreach (char c in numPart)
-            if (char.IsDigit(c)) decStr += c;
-
-        return decStr.Length > 0 ? int.Parse(decStr) : 0;
+        // D, M, T, C, R 디바이스: 10진수 파싱 (접두어 이후 숫자 부분)
+        int digitStart = 0;
+        while (digitStart < numPart.Length && !char.IsDigit(numPart[digitStart]))
+        {
+            digitStart++;
+        }
+        string decStr = numPart.Substring(digitStart);
+        return decStr.Length > 0 && int.TryParse(decStr, out int decNum) ? decNum : 0;
     }
 
     /// <summary>X 디바이스 주소 파싱 검증 — Console에서 확인</summary>
@@ -274,7 +294,10 @@ public class SLMPClient : IPLCClient
         {
             int result = client.ParseDeviceNumber(device);
             bool pass  = result == expected;
-            if (!pass) allPass = false;
+            if (!pass)
+            {
+                allPass = false;
+            }
             Debug.Log($"[주소검증] {device} → {result} (기대값: {expected}) {(pass ? "✓" : "✗ 오류")}");
         }
         Debug.Log($"[주소검증] 전체 결과: {(allPass ? "모두 통과" : "오류 있음")}");

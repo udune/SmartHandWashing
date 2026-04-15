@@ -20,6 +20,13 @@ public static class AppModeManager
         Debug.Log($"[AppMode] 모드 전환: {mode}");
     }
 
-    public static bool IsTestMode => Current == AppMode.TEST_MODE;
-    public static bool IsPLCMode  => Current == AppMode.PLC_MODE;
+    public static bool IsTestMode
+    {
+        get { return Current == AppMode.TEST_MODE; }
+    }
+
+    public static bool IsPLCMode
+    {
+        get { return Current == AppMode.PLC_MODE; }
+    }
 }

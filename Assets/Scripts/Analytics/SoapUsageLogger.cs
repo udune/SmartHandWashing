@@ -16,7 +16,11 @@ public class SoapUsageLogger : MonoBehaviour
     private const string DateFormat = "yyyy-MM-dd";
 
     private static SoapUsageLogger _instance;
-    public  static SoapUsageLogger Instance => _instance;
+
+    public static SoapUsageLogger Instance
+    {
+        get { return _instance; }
+    }
 
     [Header("References")]
     [Tooltip("StationData와 hourlyUsageCount 동기화용 (선택)")]
@@ -28,10 +32,18 @@ public class SoapUsageLogger : MonoBehaviour
 
     private int[] _hourlyCount = new int[HoursPerDay];
 
-    public int[]   HourlyCount  => _hourlyCount;
-    public int     TodayTotal   => _hourlyCount.Sum();
-    public int     PeakHour     { get; private set; }
-    public int     PeakCount    { get; private set; }
+    public int[] HourlyCount
+    {
+        get { return _hourlyCount; }
+    }
+
+    public int TodayTotal
+    {
+        get { return _hourlyCount.Sum(); }
+    }
+
+    public int PeakHour  { get; private set; }
+    public int PeakCount { get; private set; }
 
     void Awake()
     {
@@ -189,19 +201,29 @@ public class SoapUsageLogger : MonoBehaviour
     /// <summary>과거 N일간 날짜별 비누 사용 횟수 반환</summary>
     public Dictionary<string, int> GetDailyUsage(int days)
     {
-        var result = new Dictionary<string, int>();
-
+        var result = new Dictionary<string, int>(days);
         for (int i = 0; i < days; i++)
         {
-            string date = DateTime.Now.AddDays(-i).ToString(DateFormat);
-            result[date] = _queue.events
-                .Count(e => e.type == SoapEventType && e.timestamp.StartsWith(date));
+            result[DateTime.Now.AddDays(-i).ToString(DateFormat)] = 0;
+        }
+
+        foreach (var ev in _queue.events)
+        {
+            if (ev.type != SoapEventType) continue;
+            string dateKey = ev.timestamp.Length >= 10 ? ev.timestamp.Substring(0, 10) : ev.timestamp;
+            if (result.ContainsKey(dateKey))
+            {
+                result[dateKey]++;
+            }
         }
 
         return result;
     }
 
-    public AnalyticsConfig Config => _config;
+    public AnalyticsConfig Config
+    {
+        get { return _config; }
+    }
 
     private void SyncToStationData()
     {

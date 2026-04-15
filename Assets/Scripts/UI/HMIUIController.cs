@@ -25,6 +25,10 @@ public class HMIUIController : MonoBehaviour
 
     private float _soapRemain, _waterRemain, _airRemain;
     private float _lastSecond;
+    private float  _lastSoapLevel = -1f;
+    private string _lastStatusText;
+    private StationData.SystemStatus _lastLEDStatus = (StationData.SystemStatus)(-1);
+    private bool   _networkError;
 
     void Start()
     {
@@ -99,24 +103,41 @@ public class HMIUIController : MonoBehaviour
         if (stationController.stationData.isSoapRunning && AppModeManager.IsTestMode)
         {
             _soapRemain = Mathf.Max(0f, _soapRemain - Time.deltaTime);
-            if (_timerSoap != null) _timerSoap.text = _soapRemain > 0 ? $"{_soapRemain:F1}초" : "";
+            if (_timerSoap != null)
+            {
+                _timerSoap.text = _soapRemain > 0 ? $"{_soapRemain:F1}초" : "";
+            }
         }
-        else if (_timerSoap != null) _timerSoap.text = "";
+        else if (_timerSoap != null)
+        {
+            _timerSoap.text = "";
+        }
 
         if (stationController.stationData.isWaterRunning && AppModeManager.IsTestMode)
         {
             _waterRemain = Mathf.Max(0f, _waterRemain - Time.deltaTime);
-            if (_timerWater != null) _timerWater.text = _waterRemain > 0 ? $"{_waterRemain:F1}초" : "";
+            if (_timerWater != null)
+            {
+                _timerWater.text = _waterRemain > 0 ? $"{_waterRemain:F1}초" : "";
+            }
         }
-        else if (_timerWater != null) _timerWater.text = "";
+        else if (_timerWater != null)
+        {
+            _timerWater.text = "";
+        }
 
         if (stationController.stationData.isAirRunning && AppModeManager.IsTestMode)
         {
             _airRemain = Mathf.Max(0f, _airRemain - Time.deltaTime);
-            if (_timerAir != null) _timerAir.text = _airRemain > 0 ? $"{_airRemain:F1}초" : "";
+            if (_timerAir != null)
+            {
+                _timerAir.text = _airRemain > 0 ? $"{_airRemain:F1}초" : "";
+            }
         }
-        else if (_timerAir != null) _timerAir.text = "";
-
+        else if (_timerAir != null)
+        {
+            _timerAir.text = "";
+        }
 
         if (FloorManager.Instance == null || FloorManager.Instance.IsRealPLCFloor)
         {
@@ -128,13 +149,19 @@ public class HMIUIController : MonoBehaviour
 
     private void UpdateModeDisplay()
     {
-        if (stationController?.stationData == null) return;
-
-        var data = stationController.stationData;
-
-        // 헤더 시스템 상태 텍스트에 모드 + 현재 단계 반영
-        if (_statusText != null)
+        if (stationController?.stationData == null || _statusText == null)
         {
+            return;
+        }
+
+        string newText;
+        if (_networkError)
+        {
+            newText = "시스템 상태: 통신 오류";
+        }
+        else
+        {
+            var data = stationController.stationData;
             string modeStr = data.GetActiveModeName();
             string stepStr = data.currentStep > 0 ? $" - {data.GetCurrentStepName()}" : "";
             string statusStr = data.systemStatus switch
@@ -144,20 +171,27 @@ public class HMIUIController : MonoBehaviour
                 StationData.SystemStatus.Error   => "오류",
                 _ => "정상"
             };
-            _statusText.text = $"시스템 상태: {statusStr} [{modeStr}{stepStr}]";
+            newText = $"시스템 상태: {statusStr} [{modeStr}{stepStr}]";
+        }
+
+        if (newText != _lastStatusText)
+        {
+            _lastStatusText = newText;
+            _statusText.text = newText;
         }
     }
 
     private void OnNetworkConnectionChanged(bool connected)
     {
+        _networkError = !connected;
+        _lastStatusText = null;   // force text redraw next Update
         if (!connected)
         {
             _statusLed.AddToClassList("warning");
-            _statusText.text = "시스템 상태: 통신 오류";
         }
         else
         {
-            UpdateStatusLED(stationController.stationData.systemStatus);
+            _lastLEDStatus = (StationData.SystemStatus)(-1);   // force LED redraw
         }
     }
 
@@ -170,7 +204,7 @@ public class HMIUIController : MonoBehaviour
     {
         bool running = stationController.stationData.isSoapRunning;
         SetBtnActive(_btnSoap, _ledSoap, running);
-        
+
         if (running && AppModeManager.IsTestMode)
         {
             _soapRemain = stationController.soapDuration;
@@ -184,7 +218,7 @@ public class HMIUIController : MonoBehaviour
     {
         bool running = stationController.stationData.isWaterRunning;
         SetBtnActive(_btnWater, _ledWater, running);
-        
+
         if (running && AppModeManager.IsTestMode)
         {
             _waterRemain = stationController.waterDuration;
@@ -195,7 +229,7 @@ public class HMIUIController : MonoBehaviour
     {
         bool running = stationController.stationData.isAirRunning;
         SetBtnActive(_btnAir, _ledAir, running);
-        
+
         if (running && AppModeManager.IsTestMode)
         {
             _airRemain = stationController.airDuration;
@@ -218,6 +252,9 @@ public class HMIUIController : MonoBehaviour
 
     void UpdateGauge(float pct)
     {
+        if (Mathf.Approximately(pct, _lastSoapLevel)) return;
+        _lastSoapLevel = pct;
+
         _gaugeFill.style.height = Length.Percent(pct);
         _gaugePctLabel.text = $"{pct:F0}%";
 
@@ -235,20 +272,18 @@ public class HMIUIController : MonoBehaviour
 
     void UpdateStatusLED(StationData.SystemStatus status)
     {
+        if (status == _lastLEDStatus) return;
+        _lastLEDStatus = status;
+
         _statusLed.RemoveFromClassList("warning");
         _statusLed.RemoveFromClassList("error");
         switch (status)
         {
-            case StationData.SystemStatus.Normal:
-                _statusText.text = "시스템 상태: 정상";
-                break;
             case StationData.SystemStatus.Warning:
                 _statusLed.AddToClassList("warning");
-                _statusText.text = "시스템 상태: 주의";
                 break;
             case StationData.SystemStatus.Error:
                 _statusLed.AddToClassList("error");
-                _statusText.text = "시스템 상태: 오류";
                 break;
         }
     }
@@ -276,23 +311,13 @@ public class HMIUIController : MonoBehaviour
 
     private void SetActionButtonsEnabled(bool enabled)
     {
-        string[] btnNames = { "btn-soap", "btn-water", "btn-air" };
-        foreach (var name in btnNames)
+        foreach (var btn in new[] { _btnSoap, _btnWater, _btnAir })
         {
-            var btn = uiDocument.rootVisualElement.Q<VisualElement>(name);
-            if (btn == null)
-            {
-                continue;
-            }
-
+            if (btn == null) continue;
             if (enabled)
-            {
                 btn.RemoveFromClassList("btn-disabled");
-            }
             else
-            {
                 btn.AddToClassList("btn-disabled");
-            }
         }
     }
 

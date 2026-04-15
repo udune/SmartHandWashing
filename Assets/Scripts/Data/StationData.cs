@@ -13,53 +13,59 @@ public class StationData : ScriptableObject
     [Header("Analytics")]
     public int[] hourlyUsageCount = new int[24];
 
-    [Header("Running State (8단계 시퀀스)")]
-    public bool isSoapRunning = false;   // 비누 동작 중 (M0 OR M6)
-    public bool isWaterRunning = false;  // 물 동작 중 (M1 OR M2 OR M4 OR M5)
-    public bool isAirRunning = false;    // 건조 동작 중 (M3 OR M7)
-    [Range(0, 8)]
-    public int currentStep = 0;          // 현재 시퀀스 단계 (0=대기, 1~8=동작 중)
+    [Header("Running State (Y 출력 기반)")]
+    public bool isSoapRunning  = false;   // 세정제 실린더 동작 중 (Y0C1 OR Y0C2)
+    public bool isWaterRunning = false;   // 물 출수 중 (Y0C0)
+    public bool isAirRunning   = false;   // 바람 출력 중 (Y0C3)
+    public bool isSoapForward  = false;   // 세정제 전진 중 (Y0C1 = M1 OR M4)
+    public bool isSoapBackward = false;   // 세정제 후진 중 (Y0C2 = M2 OR M5)
 
-    [Header("PLC Mode (4개 모드 선택)")]
-    public bool isSoapMode = false;      // M10: 비누 모드 선택
-    public bool isWaterMode = false;     // M20: 물 모드 선택
-    public bool isManualMode = false;    // M30: 수동 모드 선택
-    public bool isDryMode = false;       // M40: 건조 모드 선택
+    [Header("PLC Mode Relays")]
+    public bool isManualWaterMode = false;  // M10: 수동 물 모드
+    public bool isManualSoapMode  = false;  // M20: 수동 세정제 모드
+    public bool isManualAirMode   = false;  // M30: 수동 바람 모드
+    public bool isAutoMode        = false;  // M40: 자동 모드 (손 센서)
 
-    public enum SystemStatus
-    {
-        Normal,
-        Warning,
-        Error
-    }
+    [Header("Step Display")]
+    [Range(0, 5)]
+    public int currentStep = 0;
+    // 0=대기  1=준비중(T0)  2=물  3=세정제전진  4=세정제후진  5=바람
 
+    public enum SystemStatus { Normal, Warning, Error }
     public SystemStatus systemStatus = SystemStatus.Normal;
 
     public event Action OnDataChanged;
 
-    /// <summary>현재 활성화된 모드 이름 반환</summary>
     public string GetActiveModeName()
     {
-        if (isSoapMode) return "비누";
-        if (isWaterMode) return "물";
-        if (isManualMode) return "수동";
-        if (isDryMode) return "건조";
+        if (isManualWaterMode)
+        {
+            return "수동 물";
+        }
+        if (isManualSoapMode)
+        {
+            return "수동 세정제";
+        }
+        if (isManualAirMode)
+        {
+            return "수동 바람";
+        }
+        if (isAutoMode)
+        {
+            return "자동";
+        }
         return "대기";
     }
 
-    /// <summary>현재 시퀀스 단계 이름 반환</summary>
     public string GetCurrentStepName()
     {
         return currentStep switch
         {
-            1 => "비누",
-            2 => "물 대기",
-            3 => "물",
-            4 => "건조",
-            5 => "헹굼 대기",
-            6 => "헹굼",
-            7 => "비누2",
-            8 => "건조2",
+            1 => "준비 중",
+            2 => "물",
+            3 => "세정제 전진",
+            4 => "세정제 후진",
+            5 => "바람",
             _ => "대기"
         };
     }
@@ -68,33 +74,62 @@ public class StationData : ScriptableObject
     {
         soapLevel = Mathf.Max(0f, soapLevel - soapDecreasePerUse);
         soapUseCount++;
-
         if (soapLevel <= 20f && soapLevel > 0f)
         {
             systemStatus = SystemStatus.Warning;
         }
-
         if (soapLevel <= 0f)
         {
             systemStatus = SystemStatus.Error;
         }
-
         OnDataChanged?.Invoke();
+    }
+
+    public static int ComputeStep(bool anyMode, bool soapFwd, bool soapBwd, bool water, bool air)
+    {
+        if (!anyMode)
+        {
+            return 0;
+        }
+
+        if (soapFwd)
+        {
+            return 3;
+        }
+
+        if (soapBwd)
+        {
+            return 4;
+        }
+
+        if (water)
+        {
+            return 2;
+        }
+
+        if (air)
+        {
+            return 5;
+        }
+        
+        return 1;
     }
 
     public void ResetData()
     {
-        soapLevel = 100f;
-        soapUseCount = 0;
-        isSoapRunning = false;
-        isWaterRunning = false;
-        isAirRunning = false;
-        currentStep = 0;
-        isSoapMode = false;
-        isWaterMode = false;
-        isManualMode = false;
-        isDryMode = false;
-        systemStatus = SystemStatus.Normal;
+        soapLevel       = 100f;
+        soapUseCount    = 0;
+        isSoapRunning   = false;
+        isWaterRunning  = false;
+        isAirRunning    = false;
+        isSoapForward   = false;
+        isSoapBackward  = false;
+        currentStep     = 0;
+        isManualWaterMode = false;
+        isManualSoapMode  = false;
+        isManualAirMode   = false;
+        isAutoMode        = false;
+        systemStatus    = SystemStatus.Normal;
         OnDataChanged?.Invoke();
     }
 }
