@@ -129,6 +129,11 @@ public class NetworkManager : MonoBehaviour
 
     private IEnumerator PollCoroutine()
     {
+        // TEST 모드에서는 StationController.SimulateLadder()가 stationData의 소유자다.
+        // 폴링이 덮어쓰면 인터록이 무력화되고 타이머 UI가 즉시 사라진다.
+        // 읽기와 통신 오류 감지는 그대로 유지하고 stationData 대입만 건너뛴다.
+        bool skipWrite = AppModeManager.IsTestMode;
+
         // ── 1. 모드 릴레이 읽기 (M10~M40: 31비트) ────────────────────
         var modeTask = _client.ReadBitsAsync(_config.devices.manualWaterMode, 31);
         yield return new WaitUntil(() => modeTask.IsCompleted);
@@ -141,7 +146,7 @@ public class NetworkManager : MonoBehaviour
         }
 
         bool[] modeBits = modeTask.Result;
-        if (modeBits.Length >= 31)
+        if (!skipWrite && modeBits.Length >= 31)
         {
             stationData.isManualWaterMode = modeBits[0];    // M10
             stationData.isManualSoapMode  = modeBits[10];   // M20
@@ -170,22 +175,27 @@ public class NetworkManager : MonoBehaviour
         bool airOn    = m.Length >= 8 && (m[3] || m[7]);   // Y0C3 = M3 OR M7
 
         // ── 3. StationData 갱신 ───────────────────────────────────────
-        stationData.isSoapRunning  = soapFwd || soapBwd;
-        stationData.isWaterRunning = waterOn;
-        stationData.isAirRunning   = airOn;
-        stationData.isSoapForward  = soapFwd;
-        stationData.isSoapBackward = soapBwd;
-        bool anyMode = stationData.isManualWaterMode || stationData.isManualSoapMode || stationData.isManualAirMode || stationData.isAutoMode;
-        stationData.currentStep = StationData.ComputeStep(anyMode, soapFwd, soapBwd, waterOn, airOn);
+        if (!skipWrite)
+        {
+            stationData.isSoapRunning  = soapFwd || soapBwd;
+            stationData.isWaterRunning = waterOn;
+            stationData.isAirRunning   = airOn;
+            stationData.isSoapForward  = soapFwd;
+            stationData.isSoapBackward = soapBwd;
+            bool anyMode = stationData.isManualWaterMode || stationData.isManualSoapMode || stationData.isManualAirMode || stationData.isAutoMode;
+            stationData.currentStep = StationData.ComputeStep(anyMode, soapFwd, soapBwd, waterOn, airOn);
+        }
 
         // ── 4. 세정제 사용 감지 (전진 시작 상승엣지 = 실제 분사 순간) ─
-        if (soapFwd && !_prevSoapFwd)
+        // TEST 모드에서는 ApplyLadderOutputs()가 이미 UseSoap()을 호출하므로 이중 차감이 된다.
+        if (!skipWrite && soapFwd && !_prevSoapFwd)
         {
             float before = stationData.soapLevel;
             stationData.UseSoap();
             SoapUsageLogger.Instance?.LogSoap(before, stationData.soapLevel);
             FloorManager.Instance?.SyncRealFloorData();
         }
+        // 엣지 기준값은 모드와 무관하게 추적한다 — TEST → PLC 복귀 시 가짜 상승엣지 방지
         _prevSoapFwd = soapFwd;
 
         // ── 5. 시스템 상태 갱신 ───────────────────────────────────────
