@@ -20,6 +20,9 @@ public class SoapUsageLogger : MonoBehaviour
     // 자정을 넘겨 연속 가동할 때 _hourlyCount를 비우기 위한 감시 주기.
     private const float DateCheckIntervalSec = 30f;
 
+    // 큐 저장 디바운스 주기. 이 값이 곧 강제 종료 시 최대 유실 구간이다.
+    private const float FlushIntervalSec = 2f;
+
     private static SoapUsageLogger _instance;
 
     public static SoapUsageLogger Instance
@@ -39,6 +42,9 @@ public class SoapUsageLogger : MonoBehaviour
 
     // _hourlyCount가 담고 있는 로컬 날짜. 이 값이 오늘과 다르면 캐시가 어제 것이다.
     private DateTime _cacheDate;
+
+    // 큐가 마지막 저장 이후 변경됐는지. FlushWatcher가 주기적으로 확인한다.
+    private bool _dirty;
 
     public int[] HourlyCount
     {
@@ -69,6 +75,17 @@ public class SoapUsageLogger : MonoBehaviour
 
         // 중복 인스턴스 가드를 통과한 경우에만 감시를 시작한다.
         StartCoroutine(DateRolloverWatcher());
+        StartCoroutine(FlushWatcher());
+    }
+
+    void OnDestroy()
+    {
+        // 중복 인스턴스는 Awake에서 파괴되며 _queue/_savePath를 초기화한 적이 없다.
+        if (_instance != this)
+        {
+            return;
+        }
+        FlushNow();
     }
 
     /// <summary>
@@ -124,14 +141,41 @@ public class SoapUsageLogger : MonoBehaviour
         }
     }
 
-    private void SaveQueue()
+    /// <summary>
+    /// 저장이 필요함을 표시만 한다. 실제 쓰기는 FlushWatcher가 모아서 처리한다.
+    /// 큐는 최대 maxQueueSize건을 전량 재직렬화하므로 이벤트마다 쓰면 프레임이 튄다.
+    /// </summary>
+    private void MarkDirty()
     {
+        _dirty = true;
+    }
+
+    private IEnumerator FlushWatcher()
+    {
+        // 저장은 게임 로직이 아니라 내구성 장치다 — Time.timeScale에 묶이면 안 된다.
+        var wait = new WaitForSecondsRealtime(FlushIntervalSec);
+        while (true)
+        {
+            yield return wait;
+            FlushNow();
+        }
+    }
+
+    private void FlushNow()
+    {
+        if (!_dirty)
+        {
+            return;
+        }
+
         try
         {
-            File.WriteAllText(_savePath, JsonUtility.ToJson(_queue, true));
+            File.WriteAllText(_savePath, JsonUtility.ToJson(_queue));
+            _dirty = false;
         }
         catch (Exception e)
         {
+            // _dirty를 유지해 다음 주기에 재시도한다.
             Debug.LogWarning($"[Logger] 큐 저장 실패: {e.Message}");
         }
     }
@@ -176,7 +220,7 @@ public class SoapUsageLogger : MonoBehaviour
             }
         }
 
-        SaveQueue();
+        MarkDirty();
     }
 
     public void MarkTransmitted(List<string> eventIds)
@@ -188,7 +232,7 @@ public class SoapUsageLogger : MonoBehaviour
                 ev.transmitted = true;
             }
         }
-        SaveQueue();
+        MarkDirty();
     }
 
     public List<UsageEvent> GetPendingEvents(int limit)
