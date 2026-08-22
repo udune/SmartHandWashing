@@ -5,6 +5,7 @@
   "pollIntervalMs": 100,
   "timeoutMs": 2000,
   "soapDecreasePerUse": 5.0,
+  "readSoapLevelFromPLC": false,
   "devices": {
     "bwdSensor":    "X0A0",
     "fwdSensor":    "X0A1",
@@ -28,6 +29,9 @@
     "autoAir":       "M7",
 
     "soapCounter":   "C0",
+
+    "soapLevel":     "D0",
+    "soapUseCount":  "D10",
 
     "waterOutput":   "Y0C0",
     "soapFwdOutput": "Y0C1",

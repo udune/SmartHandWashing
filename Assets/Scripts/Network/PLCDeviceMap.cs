@@ -28,6 +28,11 @@ public class PLCDeviceMap
     // ── 카운터 (C) — 읽기 ─────────────────────────────────────────────
     public string soapCounter = "C0";     // 자동 세정제 왕복 카운터 (K2)
 
+    // ── 데이터 레지스터 (D) — 읽기 ────────────────────────────────────
+    // readSoapLevelFromPLC = true 일 때만 폴링한다.
+    public string soapLevel    = "D0";    // 비누 잔량 (0~1000 = 0.0~100.0%)
+    public string soapUseCount = "D10";   // 누적 사용 횟수
+
     // ── 출력 (Y) — 읽기 ───────────────────────────────────────────────
     public string waterOutput   = "Y0C0";  // 물 작동 (M0 OR M6)
     public string soapFwdOutput = "Y0C1";  // 세정제 전진 (M1 OR M4)
@@ -44,5 +49,12 @@ public class PLCConfig
     public int    pollIntervalMs   = 100;
     public int    timeoutMs        = 2000;
     public float  soapDecreasePerUse = 5f;
+
+    // 비누 잔량의 소유권을 정한다.
+    //   false — 로컬 추정: UseSoap()이 상승엣지마다 soapDecreasePerUse 만큼 차감 (기존 동작)
+    //   true  — PLC 실측: D0/D10을 폴링해 미러링하고 로컬 차감은 하지 않음
+    // 현장 래더에 D0이 없으면 잔량이 0%로 읽혀 systemStatus가 Error로 고착되므로 기본값은 false.
+    public bool   readSoapLevelFromPLC = false;
+
     public PLCDeviceMap devices    = new PLCDeviceMap();
 }

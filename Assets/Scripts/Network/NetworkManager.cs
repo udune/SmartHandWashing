@@ -186,12 +186,39 @@ public class NetworkManager : MonoBehaviour
             stationData.currentStep = StationData.ComputeStep(anyMode, soapFwd, soapBwd, waterOn, airOn);
         }
 
+        // ── 3-1. 비누 잔량 실측 읽기 (D0=잔량, D10=사용횟수) ──────────
+        // D0~D10은 연속 구간이므로 11워드를 한 번에 읽어 왕복을 1회로 줄인다.
+        if (!skipWrite && _config.readSoapLevelFromPLC)
+        {
+            var soapTask = _client.ReadWordsAsync(_config.devices.soapLevel, 11);
+            yield return new WaitUntil(() => soapTask.IsCompleted);
+
+            if (soapTask.IsFaulted)
+            {
+                SetStatus("통신 오류 — 재연결", false);
+                _client.Disconnect();
+                yield break;
+            }
+
+            int[] words = soapTask.Result;
+            if (words.Length >= 11)
+            {
+                stationData.soapLevel    = Mathf.Clamp(words[0] / 10f, 0f, 100f);   // 0~1000 → 0~100%
+                stationData.soapUseCount = words[10];
+            }
+        }
+
         // ── 4. 세정제 사용 감지 (전진 시작 상승엣지 = 실제 분사 순간) ─
         // TEST 모드에서는 ApplyLadderOutputs()가 이미 UseSoap()을 호출하므로 이중 차감이 된다.
         if (!skipWrite && soapFwd && !_prevSoapFwd)
         {
             float before = stationData.soapLevel;
-            stationData.UseSoap();
+            // PLC 실측 모드에서는 D0이 잔량의 유일한 소유자다. 로컬 차감은 다음 폴링에
+            // 덮어써질 뿐이고 soapUseCount는 D10과 겹쳐 이중 카운트된다 — 로그만 남긴다.
+            if (!_config.readSoapLevelFromPLC)
+            {
+                stationData.UseSoap();
+            }
             SoapUsageLogger.Instance?.LogSoap(before, stationData.soapLevel);
             FloorManager.Instance?.SyncRealFloorData();
         }
