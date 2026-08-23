@@ -204,7 +204,7 @@ public class StationController : MonoBehaviour
         {
             _M10 = true;
         }
-        if (Rise(_X0A8, _prevX0A8) && !_M10 && !_M30 && !_M40 && !_X0A0)
+        if (Rise(_X0A8, _prevX0A8) && !_M10 && !_M30 && !_M40 && _X0A0)
         {
             _M20 = true;
         }

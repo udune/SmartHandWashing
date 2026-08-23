@@ -132,8 +132,8 @@ public class MockPLCClient : IPLCClient
                         }
                         break;
 
-                    case "X0A8":  // 세정제 스위치 → 수동 세정제 모드 (§Line 3: NOT M10, NOT M30, NOT M40, NOT X0A0)
-                        if (!_bits["M10"] && !_bits["M20"] && !_bits["M30"] && !_bits["M40"] && !_bits["X0A0"])
+                    case "X0A8":  // 세정제 스위치 → 수동 세정제 모드 (§Line 3: NOT M10, NOT M30, NOT M40, X0A0)
+                        if (!_bits["M10"] && !_bits["M20"] && !_bits["M30"] && !_bits["M40"] && _bits["X0A0"])
                         {
                             _ = SimulateManualSoap();
                         }
