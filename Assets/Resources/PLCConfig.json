@@ -1,5 +1,5 @@
 {
-  "useMock": false,
+  "useMock": true,
   "ip": "192.168.0.182",
   "port": 4999,
   "pollIntervalMs": 100,

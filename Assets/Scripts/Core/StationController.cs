@@ -104,6 +104,14 @@ public class StationController : MonoBehaviour
 
     void Update()
     {
+#if DEMO_BUILD
+        // 데모 빌드 전용 — 자동 사이클 트리거(TriggerHandSensor)가 [ContextMenu]뿐이라
+        // 빌드된 실행 파일에는 호출 경로가 없다. 현장 빌드에는 Define을 빼서 제외한다.
+        if (UnityEngine.InputSystem.Keyboard.current?.hKey.wasPressedThisFrame == true)
+        {
+            TriggerHandSensor();
+        }
+#endif
         bool plcActive = FloorManager.Instance == null || FloorManager.Instance.IsRealPLCFloor;
         if (!plcActive)
         {
