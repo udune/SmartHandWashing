@@ -1,3 +1,5 @@
+<img width="400" height="224" alt="smarthandwash_gif" src="https://github.com/user-attachments/assets/cbb0278d-808f-4af7-bb3f-0fc02163a39c" />
+
 # SmartHandWashing
 
 # 스마트 손 씻기 디지털 트윈 HMI
